@@ -3,13 +3,14 @@ package main
 import (
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/gocolly/colly"
 )
 
 func main() {
-	parseEvent("")
+	parseEvent("600041053")
 }
 
 func makeUrl(id string) string {
@@ -22,11 +23,16 @@ func makeUrl(id string) string {
 type Event struct {
 	id        string
 	startTime string
-	fights    [][]string
+	fights    []Fight
+}
+
+type Fight struct {
+	fighters []string
+	winner   string
 }
 
 func parseEvent(id string) {
-	event := Event{fights: make([][]string, 0)}
+	event := Event{fights: make([]Fight, 0)}
 	var eventDate string
 	var earliestTime string
 
@@ -46,10 +52,15 @@ func parseEvent(id string) {
 
 	c.OnHTML("div.MMAGamestrip", func(e *colly.HTMLElement) {
 		fighters := make([]string, 0)
-		e.ForEach("span.truncate", func(_ int, el *colly.HTMLElement) {
-			fighters = append(fighters, el.Text)
+		var winner string
+		e.ForEach("h2.h4", func(_ int, el *colly.HTMLElement) {
+			name := el.Text
+			fighters = append(fighters, name)
+			if strings.Contains(el.Attr("class"), "clr-gray-02") {
+				winner = name
+			}
 		})
-		event.fights = append(event.fights, fighters)
+		event.fights = append(event.fights, Fight{fighters: fighters, winner: winner})
 	})
 
 	c.OnHTML("div.MMAEventHeader__Event select.dropdown__select", func(e *colly.HTMLElement) {
@@ -79,7 +90,12 @@ func parseEvent(id string) {
 	c.Wait()
 
 	loc, _ := time.LoadLocation("Local")
-	t, err := time.ParseInLocation("January 2, 2006 at 3:04 PM", eventDate+" at "+earliestTime, loc)
+	layout := "January 2, 2006"
+	if earliestTime != "" {
+		layout += " at 3:04 PM"
+		eventDate += " at " + earliestTime
+	}
+	t, err := time.ParseInLocation(layout, eventDate, loc)
 	if err != nil {
 		log.Fatalf("Failed to parse time: %v", err)
 	}
@@ -88,6 +104,9 @@ func parseEvent(id string) {
 	fmt.Printf("Event ID: %s\n", event.id)
 	fmt.Printf("Event Date: %s\n", event.startTime)
 	for i, fight := range event.fights {
-		fmt.Printf("Fight %d: %s vs %s\n", i+1, fight[0], fight[1])
+		fmt.Printf("Fight %d: %s vs %s\n", i+1, fight.fighters[0], fight.fighters[1])
+		if fight.winner != "" {
+			fmt.Printf("Winner: %s\n", fight.winner)
+		}
 	}
 }
