@@ -53,7 +53,12 @@ func ParseEvent(id string) (*Event, error) {
 			name := el.Text
 			fighters = append(fighters, name)
 			if strings.Contains(el.Attr("class"), "clr-gray-02") {
-				winner = name
+				if winner == "" {
+					winner = name
+				} else {
+					// if both are the same color, no winner yet
+					winner = ""
+				}
 			}
 		})
 		event.Fights = append(event.Fights, Fight{Fighters: fighters, Winner: winner})
