@@ -1,8 +1,9 @@
-package parser
+package events
 
 import (
 	"fmt"
 	"log"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -10,24 +11,24 @@ import (
 )
 
 func makeUrl(id string) string {
-	if id == "" {
+	if id == "latest" {
 		return "https://www.espn.com/mma/fightcenter"
 	}
 	return fmt.Sprintf("https://www.espn.com/mma/fightcenter/_/id/%s/league/ufc", id)
 }
 
 type Event struct {
-	Id        string
-	StartTime string
-	Fights    []Fight
+	Id        string  `json:"id"`
+	StartTime string  `json:"start_time"`
+	Fights    []Fight `json:"fights"`
 }
 
 type Fight struct {
-	Fighters []string
-	Winner   string
+	Fighters []string `json:"fighters"`
+	Winner   string   `json:"winner,omitempty"`
 }
 
-func ParseEvent(id string) (*Event, error) {
+func ScrapeEvent(id string) (*Event, error) {
 	event := Event{Fights: make([]Fight, 0)}
 	var eventDate string
 	var earliestTime string
@@ -112,4 +113,41 @@ func ParseEvent(id string) (*Event, error) {
 	}
 
 	return &event, nil
+}
+
+const (
+	beforeFreshTime = time.Hour
+	duringFreshTime = 5 * time.Minute
+	eventDuration   = 10 * time.Hour
+)
+
+// Returns how long this event should remain in the cache
+// before start time, it is fresh for beforeFreshTime or until event start, whichever is sooner
+// during the event, it is fresh for duringFreshTime
+// after the event, it is fresh forever (0)
+// event is considered active for eventDuration after start time
+func (e *Event) FreshTime() time.Duration {
+	startTime, err := time.Parse(time.RFC3339, e.StartTime)
+	if err != nil {
+		slog.Error(fmt.Sprintf("failed to parse start time: %v", err))
+		return 0
+	}
+	now := time.Now()
+
+	// before start time
+	if startTime.After(now) {
+		if now.Add(beforeFreshTime).After(startTime) {
+			return time.Until(startTime)
+		} else {
+			return beforeFreshTime
+		}
+	}
+
+	// during event
+	if now.Before(startTime.Add(eventDuration)) {
+		return duringFreshTime
+	}
+
+	// event is over, keep forever
+	return 0
 }

@@ -12,6 +12,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/joho/godotenv"
+	"github.com/redis/go-redis/v9"
+	"github.com/thebenkogan/ufc/internal/cache"
 	"github.com/thebenkogan/ufc/internal/server"
 )
 
@@ -27,7 +30,17 @@ func run(ctx context.Context) error {
 	ctx, cancel := signal.NotifyContext(ctx, os.Interrupt)
 	defer cancel()
 
-	srv := server.NewServer()
+	if err := godotenv.Load(); err != nil {
+		return fmt.Errorf("error loading .env file: %w", err)
+	}
+
+	rdb := redis.NewClient(&redis.Options{
+		Addr: net.JoinHostPort("localhost", os.Getenv("REDIS_PORT")),
+	})
+	defer rdb.Close()
+	eventCache := cache.NewRedisEventCache(rdb)
+
+	srv := server.NewServer(eventCache)
 	httpServer := &http.Server{
 		Addr:    net.JoinHostPort("localhost", "8080"),
 		Handler: srv,

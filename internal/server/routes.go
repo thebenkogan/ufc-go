@@ -2,17 +2,17 @@ package server
 
 import (
 	"encoding/json"
-	"fmt"
 	"log/slog"
 	"net/http"
 
-	"github.com/thebenkogan/ufc/internal/parser"
+	"github.com/thebenkogan/ufc/internal/cache"
 )
 
 func addRoutes(
 	mux *http.ServeMux,
+	eventCache cache.EventCacheRepository,
 ) {
-	mux.Handle("GET /events/{id}", handleGetEvent())
+	mux.Handle("GET /events/{id}", handleGetEvent(eventCache))
 	mux.Handle("/", http.NotFoundHandler())
 }
 
@@ -22,22 +22,5 @@ func encode[T any](w http.ResponseWriter, status int, v T) {
 	if err := json.NewEncoder(w).Encode(v); err != nil {
 		slog.Error(err.Error())
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
-	}
-}
-
-func handleGetEvent() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		id := r.PathValue("id")
-		slog.Info(fmt.Sprintf("Getting event, ID: %s", id))
-		if id == "latest" {
-			id = ""
-		}
-		event, err := parser.ParseEvent(id)
-		if err != nil {
-			slog.Error(err.Error())
-			http.Error(w, "Internal server error", http.StatusInternalServerError)
-			return
-		}
-		encode(w, http.StatusOK, event)
 	}
 }
