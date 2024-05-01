@@ -103,15 +103,6 @@ func ScrapeEvent(id string) (*Event, error) {
 	}
 	event.StartTime = t.UTC().Format(time.RFC3339)
 
-	fmt.Printf("Event ID: %s\n", event.Id)
-	fmt.Printf("Event Date: %s\n", event.StartTime)
-	for i, fight := range event.Fights {
-		fmt.Printf("Fight %d: %s vs %s\n", i+1, fight.Fighters[0], fight.Fighters[1])
-		if fight.Winner != "" {
-			fmt.Printf("Winner: %s\n", fight.Winner)
-		}
-	}
-
 	return &event, nil
 }
 

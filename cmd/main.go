@@ -35,7 +35,7 @@ func run(ctx context.Context) error {
 	}
 
 	rdb := redis.NewClient(&redis.Options{
-		Addr: net.JoinHostPort("localhost", os.Getenv("REDIS_PORT")),
+		Addr: net.JoinHostPort(os.Getenv("REDIS_HOST"), os.Getenv("REDIS_PORT")),
 	})
 	defer rdb.Close()
 	eventCache := cache.NewRedisEventCache(rdb)
