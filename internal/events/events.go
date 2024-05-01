@@ -39,10 +39,6 @@ func ScrapeEvent(id string) (*Event, error) {
 		log.Println("Visiting", r.URL)
 	})
 
-	c.OnError(func(_ *colly.Response, err error) {
-		log.Println("Something went wrong:", err)
-	})
-
 	c.OnResponse(func(r *colly.Response) {
 		log.Println("Visited", r.Request.URL)
 	})

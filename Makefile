@@ -6,3 +6,9 @@ run: build
 
 test:
 	go test --race -v -count=1 ./...
+
+up:
+	docker-compose up -d
+
+down:
+	docker-compose down
