@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/gocolly/colly"
+	"github.com/thebenkogan/ufc/internal/model"
 )
 
 func makeUrl(id string) string {
@@ -17,19 +18,8 @@ func makeUrl(id string) string {
 	return fmt.Sprintf("https://www.espn.com/mma/fightcenter/_/id/%s/league/ufc", id)
 }
 
-type Event struct {
-	Id        string  `json:"id"`
-	StartTime string  `json:"start_time"`
-	Fights    []Fight `json:"fights"`
-}
-
-type Fight struct {
-	Fighters []string `json:"fighters"`
-	Winner   string   `json:"winner,omitempty"`
-}
-
-func ScrapeEvent(id string) (*Event, error) {
-	event := Event{Fights: make([]Fight, 0)}
+func scrapeEvent(id string) (*model.Event, error) {
+	event := model.Event{Fights: make([]model.Fight, 0)}
 	var eventDate string
 	var earliestTime string
 
@@ -58,7 +48,7 @@ func ScrapeEvent(id string) (*Event, error) {
 				}
 			}
 		})
-		event.Fights = append(event.Fights, Fight{Fighters: fighters, Winner: winner})
+		event.Fights = append(event.Fights, model.Fight{Fighters: fighters, Winner: winner})
 	})
 
 	c.OnHTML("div.MMAEventHeader__Event select.dropdown__select", func(e *colly.HTMLElement) {
@@ -113,8 +103,8 @@ const (
 // during the event, it is fresh for duringFreshTime
 // after the event, it is fresh forever (0)
 // event is considered active for eventDuration after start time
-func (e *Event) FreshTime() time.Duration {
-	startTime, err := time.Parse(time.RFC3339, e.StartTime)
+func freshTime(event *model.Event) time.Duration {
+	startTime, err := time.Parse(time.RFC3339, event.StartTime)
 	if err != nil {
 		slog.Error(fmt.Sprintf("failed to parse start time: %v", err))
 		return 0

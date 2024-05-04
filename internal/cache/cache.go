@@ -3,14 +3,15 @@ package cache
 import (
 	"context"
 	"encoding/json"
+	"time"
 
 	"github.com/redis/go-redis/v9"
-	"github.com/thebenkogan/ufc/internal/events"
+	"github.com/thebenkogan/ufc/internal/model"
 )
 
 type EventCacheRepository interface {
-	GetEvent(ctx context.Context, id string) (*events.Event, error)
-	SetEvent(ctx context.Context, id string, event *events.Event) error
+	GetEvent(ctx context.Context, id string) (*model.Event, error)
+	SetEvent(ctx context.Context, id string, event *model.Event, ttl time.Duration) error
 }
 
 type RedisEventCache struct {
@@ -23,7 +24,7 @@ func NewRedisEventCache(client *redis.Client) *RedisEventCache {
 	}
 }
 
-func (r *RedisEventCache) GetEvent(ctx context.Context, id string) (*events.Event, error) {
+func (r *RedisEventCache) GetEvent(ctx context.Context, id string) (*model.Event, error) {
 	eventJSON, err := r.client.Get(ctx, id).Result()
 	if err != nil {
 		if err == redis.Nil {
@@ -31,19 +32,19 @@ func (r *RedisEventCache) GetEvent(ctx context.Context, id string) (*events.Even
 		}
 		return nil, err
 	}
-	var event events.Event
+	var event model.Event
 	if err := json.Unmarshal([]byte(eventJSON), &event); err != nil {
 		return nil, err
 	}
 	return &event, nil
 }
 
-func (r *RedisEventCache) SetEvent(ctx context.Context, id string, event *events.Event) error {
+func (r *RedisEventCache) SetEvent(ctx context.Context, id string, event *model.Event, ttl time.Duration) error {
 	eventJSON, err := json.Marshal(event)
 	if err != nil {
 		return err
 	}
-	if err := r.client.Set(ctx, id, string(eventJSON), event.FreshTime()).Err(); err != nil {
+	if err := r.client.Set(ctx, id, string(eventJSON), ttl).Err(); err != nil {
 		return err
 	}
 	return nil
