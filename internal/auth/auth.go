@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/base64"
-	"fmt"
 	"io"
 	"log"
 	"log/slog"
@@ -21,7 +20,7 @@ func randString(nByte int) (string, error) {
 	return base64.RawURLEncoding.EncodeToString(b), nil
 }
 
-func setCallbackCookie(w http.ResponseWriter, r *http.Request, name, value string) {
+func setCookie(w http.ResponseWriter, r *http.Request, name, value string) {
 	c := &http.Cookie{
 		Name:     name,
 		Value:    value,
@@ -76,8 +75,8 @@ func (a *Auth) HandleBeginAuth() http.HandlerFunc {
 			http.Error(w, "Internal error", http.StatusInternalServerError)
 			return
 		}
-		setCallbackCookie(w, r, "state", state)
-		setCallbackCookie(w, r, "nonce", nonce)
+		setCookie(w, r, "state", state)
+		setCookie(w, r, "nonce", nonce)
 		http.Redirect(w, r, a.config.AuthCodeURL(state, oidc.Nonce(nonce)), http.StatusFound)
 	}
 }
@@ -127,14 +126,13 @@ func (a *Auth) HandleAuthCallback() http.HandlerFunc {
 			return
 		}
 
-		setCallbackCookie(w, r, "id_token", rawIDToken)
+		setCookie(w, r, "id_token", rawIDToken)
 		w.Write([]byte("Hello, " + user.Name))
 	}
 }
 
 func (a *Auth) Middleware(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		fmt.Println(r.Cookies())
 		idTokenCookie, err := r.Cookie("id_token")
 		if err == http.ErrNoCookie {
 			http.Redirect(w, r, "/login", http.StatusFound)
