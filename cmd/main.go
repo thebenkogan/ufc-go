@@ -14,6 +14,7 @@ import (
 
 	"github.com/joho/godotenv"
 	"github.com/redis/go-redis/v9"
+	"github.com/thebenkogan/ufc/internal/auth"
 	"github.com/thebenkogan/ufc/internal/cache"
 	"github.com/thebenkogan/ufc/internal/server"
 )
@@ -34,13 +35,18 @@ func run(ctx context.Context) error {
 		return fmt.Errorf("error loading .env file: %w", err)
 	}
 
+	auth, err := auth.NewAuth(ctx, os.Getenv("GOOGLE_OAUTH2_CLIENT_ID"), os.Getenv("GOOGLE_OAUTH2_CLIENT_SECRET"))
+	if err != nil {
+		return fmt.Errorf("error creating auth: %w", err)
+	}
+
 	rdb := redis.NewClient(&redis.Options{
 		Addr: net.JoinHostPort(os.Getenv("REDIS_HOST"), os.Getenv("REDIS_PORT")),
 	})
 	defer rdb.Close()
 	eventCache := cache.NewRedisEventCache(rdb)
 
-	srv := server.NewServer(eventCache)
+	srv := server.NewServer(auth, eventCache)
 	httpServer := &http.Server{
 		Addr:    net.JoinHostPort("localhost", "8080"),
 		Handler: srv,

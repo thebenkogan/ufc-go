@@ -6,13 +6,14 @@ import (
 	"log/slog"
 	"net/http"
 
+	"github.com/thebenkogan/ufc/internal/auth"
 	"github.com/thebenkogan/ufc/internal/cache"
 	"github.com/thebenkogan/ufc/internal/events"
 )
 
-func NewServer(eventCache cache.EventCacheRepository) http.Handler {
+func NewServer(auth *auth.Auth, eventCache cache.EventCacheRepository) http.Handler {
 	mux := http.NewServeMux()
-	addRoutes(mux, eventCache)
+	addRoutes(mux, auth, eventCache)
 	return mux
 }
 
@@ -42,8 +43,7 @@ func handleGetEvent(eventCache cache.EventCacheRepository) http.HandlerFunc {
 
 		cached, err := eventCache.GetEvent(r.Context(), id)
 		if err != nil {
-			slog.Info("failed to get")
-			return err
+			slog.Warn("failed to get event from cache: %s", err)
 		}
 
 		if cached != nil {
@@ -59,13 +59,11 @@ func handleGetEvent(eventCache cache.EventCacheRepository) http.HandlerFunc {
 			return err
 		}
 
-		slog.Info("parsed event, storing to cache...")
+		slog.Info("parsed event, storing to cache")
 
 		if err := eventCache.SetEvent(r.Context(), id, event); err != nil {
-			return err
+			slog.Warn("failed to cache event: %s", err)
 		}
-
-		slog.Info("cached event")
 
 		encode(w, http.StatusOK, event)
 		return nil
