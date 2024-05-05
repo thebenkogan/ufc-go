@@ -9,7 +9,7 @@ import (
 	"github.com/thebenkogan/ufc/internal/util"
 )
 
-func HandleGetEvent(eventCache cache.EventCacheRepository) util.Handler {
+func HandleGetEvent(eventScraper EventScraper, eventCache cache.EventCacheRepository) util.Handler {
 	return func(w http.ResponseWriter, r *http.Request) error {
 		id := r.PathValue("id")
 		slog.Info(fmt.Sprintf("Getting event, ID: %s", id))
@@ -27,7 +27,7 @@ func HandleGetEvent(eventCache cache.EventCacheRepository) util.Handler {
 
 		slog.Info("cache miss, parsing event...")
 
-		event, err := scrapeEvent(id)
+		event, err := eventScraper.ScrapeEvent(id)
 		if err != nil {
 			return err
 		}

@@ -10,9 +10,9 @@ import (
 	"github.com/thebenkogan/ufc/internal/util"
 )
 
-func NewServer(auth *auth.Auth, eventCache cache.EventCacheRepository) http.Handler {
+func NewServer(auth auth.OIDCAuth, eventScraper events.EventScraper, eventCache cache.EventCacheRepository) http.Handler {
 	mux := http.NewServeMux()
-	addRoutes(mux, auth, eventCache)
+	addRoutes(mux, auth, eventScraper, eventCache)
 	return mux
 }
 
@@ -28,12 +28,13 @@ func handler(h util.Handler) http.HandlerFunc {
 
 func addRoutes(
 	mux *http.ServeMux,
-	auth *auth.Auth,
+	auth auth.OIDCAuth,
+	eventScraper events.EventScraper,
 	eventCache cache.EventCacheRepository,
 ) {
 	mux.Handle("/login", handler(auth.HandleBeginAuth()))
 	mux.Handle("/auth/google/callback", handler(auth.HandleAuthCallback()))
 
-	mux.Handle("GET /events/{id}", handler(auth.Middleware(events.HandleGetEvent(eventCache))))
+	mux.Handle("GET /events/{id}", handler(auth.Middleware(events.HandleGetEvent(eventScraper, eventCache))))
 	mux.Handle("/", http.NotFoundHandler())
 }

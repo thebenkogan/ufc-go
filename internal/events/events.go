@@ -11,14 +11,24 @@ import (
 	"github.com/thebenkogan/ufc/internal/model"
 )
 
-func makeUrl(id string) string {
+type EventScraper interface {
+	ScrapeEvent(id string) (*model.Event, error)
+}
+
+type ESPNEventScraper struct{}
+
+func NewESPNEventScraper() *ESPNEventScraper {
+	return &ESPNEventScraper{}
+}
+
+func (_ ESPNEventScraper) makeUrl(id string) string {
 	if id == "latest" {
 		return "https://www.espn.com/mma/fightcenter"
 	}
 	return fmt.Sprintf("https://www.espn.com/mma/fightcenter/_/id/%s/league/ufc", id)
 }
 
-func scrapeEvent(id string) (*model.Event, error) {
+func (e ESPNEventScraper) ScrapeEvent(id string) (*model.Event, error) {
 	event := model.Event{Fights: make([]model.Fight, 0)}
 	var eventDate string
 	var earliestTime string
@@ -72,7 +82,7 @@ func scrapeEvent(id string) (*model.Event, error) {
 		})
 	})
 
-	if err := c.Visit(makeUrl(id)); err != nil {
+	if err := c.Visit(e.makeUrl(id)); err != nil {
 		return nil, fmt.Errorf("failed to visit URL: %v", err)
 	}
 	c.Wait()

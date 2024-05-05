@@ -1,17 +1,19 @@
 package auth
 
 import (
-	"context"
-	"log"
+	"crypto/rand"
+	"encoding/base64"
+	"io"
+	"net/http"
+	"time"
 
-	"github.com/coreos/go-oidc/v3/oidc"
-	"golang.org/x/oauth2"
+	"github.com/thebenkogan/ufc/internal/util"
 )
 
-type Auth struct {
-	provider      *oidc.Provider
-	config        oauth2.Config
-	tokenVerifier *oidc.IDTokenVerifier
+type OIDCAuth interface {
+	HandleBeginAuth() util.Handler
+	HandleAuthCallback() util.Handler
+	Middleware(h util.Handler) util.Handler
 }
 
 type User struct {
@@ -20,21 +22,20 @@ type User struct {
 	Name  string `json:"name"`
 }
 
-func NewAuth(ctx context.Context, clientId, clientSecret string) (*Auth, error) {
-	provider, err := oidc.NewProvider(ctx, "https://accounts.google.com")
-	if err != nil {
-		log.Fatal(err)
+func randString(nByte int) (string, error) {
+	b := make([]byte, nByte)
+	_, _ = io.ReadFull(rand.Reader, b)
+	return base64.RawURLEncoding.EncodeToString(b), nil
+}
+
+func setCookie(w http.ResponseWriter, r *http.Request, name, value string) {
+	c := &http.Cookie{
+		Name:     name,
+		Value:    value,
+		MaxAge:   int(time.Hour.Seconds()),
+		Secure:   r.TLS != nil,
+		HttpOnly: true,
+		Path:     "/",
 	}
-	oidcConfig := &oidc.Config{
-		ClientID: clientId,
-	}
-	verifier := provider.Verifier(oidcConfig)
-	config := oauth2.Config{
-		ClientID:     clientId,
-		ClientSecret: clientSecret,
-		Endpoint:     provider.Endpoint(),
-		RedirectURL:  "http://localhost:8080/auth/google/callback",
-		Scopes:       []string{oidc.ScopeOpenID, "profile", "email"},
-	}
-	return &Auth{provider, config, verifier}, nil
+	http.SetCookie(w, c)
 }

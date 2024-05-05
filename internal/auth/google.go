@@ -2,36 +2,40 @@ package auth
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/base64"
 	"fmt"
-	"io"
 	"net/http"
-	"time"
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/thebenkogan/ufc/internal/util"
+	"golang.org/x/oauth2"
 )
 
-func randString(nByte int) (string, error) {
-	b := make([]byte, nByte)
-	_, _ = io.ReadFull(rand.Reader, b)
-	return base64.RawURLEncoding.EncodeToString(b), nil
+type GoogleAuth struct {
+	provider      *oidc.Provider
+	config        oauth2.Config
+	tokenVerifier *oidc.IDTokenVerifier
 }
 
-func setCookie(w http.ResponseWriter, r *http.Request, name, value string) {
-	c := &http.Cookie{
-		Name:     name,
-		Value:    value,
-		MaxAge:   int(time.Hour.Seconds()),
-		Secure:   r.TLS != nil,
-		HttpOnly: true,
-		Path:     "/",
+func NewGoogleAuth(ctx context.Context, clientId, clientSecret string) (*GoogleAuth, error) {
+	provider, err := oidc.NewProvider(ctx, "https://accounts.google.com")
+	if err != nil {
+		return nil, err
 	}
-	http.SetCookie(w, c)
+	oidcConfig := &oidc.Config{
+		ClientID: clientId,
+	}
+	verifier := provider.Verifier(oidcConfig)
+	config := oauth2.Config{
+		ClientID:     clientId,
+		ClientSecret: clientSecret,
+		Endpoint:     provider.Endpoint(),
+		RedirectURL:  "http://localhost:8080/auth/google/callback",
+		Scopes:       []string{oidc.ScopeOpenID, "profile", "email"},
+	}
+	return &GoogleAuth{provider, config, verifier}, nil
 }
 
-func (a *Auth) HandleBeginAuth() util.Handler {
+func (a *GoogleAuth) HandleBeginAuth() util.Handler {
 	return func(w http.ResponseWriter, r *http.Request) error {
 		state, err := randString(16)
 		if err != nil {
@@ -48,7 +52,7 @@ func (a *Auth) HandleBeginAuth() util.Handler {
 	}
 }
 
-func (a *Auth) HandleAuthCallback() util.Handler {
+func (a *GoogleAuth) HandleAuthCallback() util.Handler {
 	return func(w http.ResponseWriter, r *http.Request) error {
 		state, err := r.Cookie("state")
 		if err != nil {
@@ -95,7 +99,7 @@ func (a *Auth) HandleAuthCallback() util.Handler {
 	}
 }
 
-func (a *Auth) Middleware(h util.Handler) util.Handler {
+func (a *GoogleAuth) Middleware(h util.Handler) util.Handler {
 	return func(w http.ResponseWriter, r *http.Request) error {
 		idTokenCookie, err := r.Cookie("id_token")
 		if err == http.ErrNoCookie {

@@ -5,7 +5,7 @@ run: build
 	./bin/main
 
 test:
-	go test --race -v -count=1 ./...
+	go test -count=1 ./...
 
 up:
 	docker-compose up -d
