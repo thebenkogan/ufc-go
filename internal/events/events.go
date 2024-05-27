@@ -87,6 +87,11 @@ func (e ESPNEventScraper) ScrapeEvent(id string) (*model.Event, error) {
 	}
 	c.Wait()
 
+	if earliestTime == "LIVE" {
+		event.StartTime = "LIVE"
+		return &event, nil
+	}
+
 	loc, _ := time.LoadLocation("Local")
 	layout := "January 2, 2006"
 	if earliestTime != "" {
@@ -105,15 +110,17 @@ func (e ESPNEventScraper) ScrapeEvent(id string) (*model.Event, error) {
 const (
 	beforeFreshTime = time.Hour
 	duringFreshTime = 5 * time.Minute
-	eventDuration   = 10 * time.Hour
 )
 
 // Returns how long this event should remain in the cache
 // before start time, it is fresh for beforeFreshTime or until event start, whichever is sooner
-// during the event, it is fresh for duringFreshTime
+// during the event (LIVE), it is fresh for duringFreshTime
 // after the event, it is fresh forever (0)
-// event is considered active for eventDuration after start time
 func freshTime(event *model.Event) time.Duration {
+	if event.StartTime == "LIVE" {
+		return duringFreshTime
+	}
+
 	startTime, err := time.Parse(time.RFC3339, event.StartTime)
 	if err != nil {
 		slog.Error(fmt.Sprintf("failed to parse start time: %v", err))
@@ -128,11 +135,6 @@ func freshTime(event *model.Event) time.Duration {
 		} else {
 			return beforeFreshTime
 		}
-	}
-
-	// during event
-	if now.Before(startTime.Add(eventDuration)) {
-		return duringFreshTime
 	}
 
 	// event is over, keep forever

@@ -16,11 +16,9 @@ func TestFreshTime(t *testing.T) {
 		startTime time.Time
 		expected  time.Duration
 	}{
-		{now, duringFreshTime},
-		{now.Add(-eventDuration / 3), duringFreshTime},
 		{now.Add(2 * beforeFreshTime), beforeFreshTime},
 		{now.Add(beforeFreshTime / 2), beforeFreshTime / 2},
-		{now.Add(-2 * eventDuration), 0},
+		{now.Add(-2 * time.Hour), 0},
 	}
 
 	for _, tt := range freshTimeTests {
@@ -32,4 +30,12 @@ func TestFreshTime(t *testing.T) {
 			}
 		})
 	}
+
+	t.Run("Should return duringFreshTime when event is LIVE", func(t *testing.T) {
+		event := &model.Event{StartTime: "LIVE"}
+		got := freshTime(event)
+		if got != duringFreshTime {
+			t.Errorf("got %v, want %v", got, duringFreshTime)
+		}
+	})
 }
