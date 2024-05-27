@@ -45,6 +45,9 @@ func run(ctx context.Context) error {
 		Addr: net.JoinHostPort(os.Getenv("REDIS_HOST"), os.Getenv("REDIS_PORT")),
 	})
 	defer rdb.Close()
+	if _, err := rdb.Ping(ctx).Result(); err != nil {
+		return fmt.Errorf("error pinging redis cache: %w", err)
+	}
 	eventCache := cache.NewRedisEventCache(rdb)
 
 	srv := server.NewServer(auth, events.NewESPNEventScraper(), eventCache)
