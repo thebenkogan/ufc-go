@@ -17,6 +17,7 @@ import (
 	"github.com/thebenkogan/ufc/internal/auth"
 	"github.com/thebenkogan/ufc/internal/cache"
 	"github.com/thebenkogan/ufc/internal/events"
+	"github.com/thebenkogan/ufc/internal/picks"
 	"github.com/thebenkogan/ufc/internal/server"
 )
 
@@ -49,8 +50,9 @@ func run(ctx context.Context) error {
 		return fmt.Errorf("error pinging redis cache: %w", err)
 	}
 	eventCache := cache.NewRedisEventCache(rdb)
+	eventPicks := picks.NewRedisEventPicks(rdb)
 
-	srv := server.NewServer(auth, events.NewESPNEventScraper(), eventCache)
+	srv := server.NewServer(auth, events.NewESPNEventScraper(), eventCache, eventPicks)
 	httpServer := &http.Server{
 		Addr:    net.JoinHostPort("localhost", "8080"),
 		Handler: srv,

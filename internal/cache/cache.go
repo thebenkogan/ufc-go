@@ -24,8 +24,12 @@ func NewRedisEventCache(client *redis.Client) *RedisEventCache {
 	}
 }
 
+func (_ *RedisEventCache) key(id string) string {
+	return "events#" + id
+}
+
 func (r *RedisEventCache) GetEvent(ctx context.Context, id string) (*model.Event, error) {
-	eventJSON, err := r.client.Get(ctx, id).Result()
+	eventJSON, err := r.client.Get(ctx, r.key(id)).Result()
 	if err != nil {
 		if err == redis.Nil {
 			return nil, nil
@@ -44,7 +48,7 @@ func (r *RedisEventCache) SetEvent(ctx context.Context, id string, event *model.
 	if err != nil {
 		return err
 	}
-	if err := r.client.Set(ctx, id, string(eventJSON), ttl).Err(); err != nil {
+	if err := r.client.Set(ctx, r.key(id), string(eventJSON), ttl).Err(); err != nil {
 		return err
 	}
 	return nil

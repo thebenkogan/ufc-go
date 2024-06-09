@@ -2,43 +2,56 @@ package events
 
 import (
 	"fmt"
-	"log/slog"
 	"net/http"
 
+	"github.com/thebenkogan/ufc/internal/auth"
 	"github.com/thebenkogan/ufc/internal/cache"
+	"github.com/thebenkogan/ufc/internal/picks"
 	"github.com/thebenkogan/ufc/internal/util"
 )
 
 func HandleGetEvent(eventScraper EventScraper, eventCache cache.EventCacheRepository) util.Handler {
 	return func(w http.ResponseWriter, r *http.Request) error {
 		id := r.PathValue("id")
-		slog.Info(fmt.Sprintf("Getting event, ID: %s", id))
-
-		cached, err := eventCache.GetEvent(r.Context(), id)
+		event, err := getEventWithCache(r.Context(), eventScraper, eventCache, id)
 		if err != nil {
-			slog.Warn("failed to get event from cache", "error", err)
+			return err
 		}
+		util.Encode(w, http.StatusOK, event)
+		return nil
+	}
+}
 
-		if cached != nil {
-			slog.Info("cache hit")
-			util.Encode(w, http.StatusOK, cached)
-			return nil
-		}
+type EventPicks struct {
+	Winners []string `json:"winners"`
+}
 
-		slog.Info("cache miss, parsing event...")
+func HandlePostPicks(eventScraper EventScraper, eventCache cache.EventCacheRepository, eventPicks picks.EventPicksRepository) util.Handler {
+	return func(w http.ResponseWriter, r *http.Request) error {
+		var picks EventPicks
+		util.Decode(r, &picks)
+		pickedFighters := util.Distinct(picks.Winners)
 
-		event, err := eventScraper.ScrapeEvent(id)
+		id := r.PathValue("id")
+		event, err := getEventWithCache(r.Context(), eventScraper, eventCache, id)
 		if err != nil {
 			return err
 		}
 
-		slog.Info("parsed event, storing to cache")
-
-		if err := eventCache.SetEvent(r.Context(), id, event, freshTime(event)); err != nil {
-			slog.Warn("failed to cache event", "error", err)
+		if err := validatePicks(event, pickedFighters); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return nil
 		}
 
-		util.Encode(w, http.StatusOK, event)
+		user, ok := r.Context().Value("user").(auth.User)
+		if !ok {
+			return fmt.Errorf("no user in context")
+		}
+
+		if err := eventPicks.SavePicks(r.Context(), user, id, pickedFighters); err != nil {
+			return fmt.Errorf("error saving picks: %w", err)
+		}
+
 		return nil
 	}
 }

@@ -7,12 +7,13 @@ import (
 	"github.com/thebenkogan/ufc/internal/auth"
 	"github.com/thebenkogan/ufc/internal/cache"
 	"github.com/thebenkogan/ufc/internal/events"
+	"github.com/thebenkogan/ufc/internal/picks"
 	"github.com/thebenkogan/ufc/internal/util"
 )
 
-func NewServer(auth auth.OIDCAuth, eventScraper events.EventScraper, eventCache cache.EventCacheRepository) http.Handler {
+func NewServer(auth auth.OIDCAuth, eventScraper events.EventScraper, eventCache cache.EventCacheRepository, eventPicks picks.EventPicksRepository) http.Handler {
 	mux := http.NewServeMux()
-	addRoutes(mux, auth, eventScraper, eventCache)
+	addRoutes(mux, auth, eventScraper, eventCache, eventPicks)
 	return mux
 }
 
@@ -31,10 +32,13 @@ func addRoutes(
 	auth auth.OIDCAuth,
 	eventScraper events.EventScraper,
 	eventCache cache.EventCacheRepository,
+	eventPicks picks.EventPicksRepository,
 ) {
 	mux.Handle("/login", handler(auth.HandleBeginAuth()))
 	mux.Handle("/auth/google/callback", handler(auth.HandleAuthCallback()))
 
 	mux.Handle("GET /events/{id}", handler(auth.Middleware(events.HandleGetEvent(eventScraper, eventCache))))
+	mux.Handle("POST /events/{id}/picks", handler(auth.Middleware(events.HandlePostPicks(eventScraper, eventCache, eventPicks))))
+
 	mux.Handle("/", http.NotFoundHandler())
 }

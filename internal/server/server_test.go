@@ -74,7 +74,7 @@ func TestServer(t *testing.T) {
 		},
 	}
 
-	srv := server.NewServer(testOAuth{}, testScraper, eventCache)
+	srv := server.NewServer(testOAuth{}, testScraper, eventCache, nil)
 
 	ts := httptest.NewServer(srv)
 	defer ts.Close()
