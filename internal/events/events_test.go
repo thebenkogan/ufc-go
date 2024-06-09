@@ -39,3 +39,35 @@ func TestFreshTime(t *testing.T) {
 		}
 	})
 }
+
+func TestValidatePicks(t *testing.T) {
+	event := &model.Event{StartTime: "LIVE", Fights: []model.Fight{
+		{Fighters: []string{"A", "B"}},
+		{Fighters: []string{"C", "D"}},
+		{Fighters: []string{"E", "F"}},
+	}}
+
+	validateTests := []struct {
+		picks []string
+		valid bool
+	}{
+		{[]string{}, false},
+		{[]string{"A", "C", "E", "D"}, false},
+		{[]string{"A", "B", "C"}, false},
+		{[]string{"G"}, false},
+		{[]string{"A"}, true},
+		{[]string{"A", "C", "E"}, true},
+	}
+
+	for _, tt := range validateTests {
+		t.Run(fmt.Sprintf("picks: %v, valid: %v", tt.picks, tt.valid), func(t *testing.T) {
+			err := validatePicks(event, tt.picks)
+			if tt.valid && err != nil {
+				t.Errorf("expected valid event, got error: %v", err)
+			}
+			if !tt.valid && err == nil {
+				t.Errorf("expected invalid event, got nil error")
+			}
+		})
+	}
+}

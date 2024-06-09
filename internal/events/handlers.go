@@ -38,6 +38,11 @@ func HandlePostPicks(eventScraper EventScraper, eventCache cache.EventCacheRepos
 			return err
 		}
 
+		if event.StartTime == "LIVE" {
+			http.Error(w, "event is live, picks are closed", http.StatusBadRequest)
+			return nil
+		}
+
 		if err := validatePicks(event, pickedFighters); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return nil
