@@ -16,7 +16,7 @@ func HandleGetEvent(eventScraper EventScraper, eventCache cache.EventCacheReposi
 
 		cached, err := eventCache.GetEvent(r.Context(), id)
 		if err != nil {
-			slog.Warn("failed to get event from cache: %s", err)
+			slog.Warn("failed to get event from cache", "error", err)
 		}
 
 		if cached != nil {
@@ -35,7 +35,7 @@ func HandleGetEvent(eventScraper EventScraper, eventCache cache.EventCacheReposi
 		slog.Info("parsed event, storing to cache")
 
 		if err := eventCache.SetEvent(r.Context(), id, event, freshTime(event)); err != nil {
-			slog.Warn("failed to cache event: %s", err)
+			slog.Warn("failed to cache event", "error", err)
 		}
 
 		util.Encode(w, http.StatusOK, event)

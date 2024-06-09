@@ -87,11 +87,6 @@ func (e ESPNEventScraper) ScrapeEvent(id string) (*model.Event, error) {
 	}
 	c.Wait()
 
-	if earliestTime == "LIVE" {
-		event.StartTime = "LIVE"
-		return &event, nil
-	}
-
 	loc, _ := time.LoadLocation("Local")
 	layout := "January 2, 2006"
 	if earliestTime != "" {
@@ -100,9 +95,10 @@ func (e ESPNEventScraper) ScrapeEvent(id string) (*model.Event, error) {
 	}
 	t, err := time.ParseInLocation(layout, eventDate, loc)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse date: %v", err)
+		event.StartTime = "LIVE"
+	} else {
+		event.StartTime = t.UTC().Format(time.RFC3339)
 	}
-	event.StartTime = t.UTC().Format(time.RFC3339)
 
 	return &event, nil
 }
