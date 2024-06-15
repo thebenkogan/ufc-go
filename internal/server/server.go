@@ -38,6 +38,8 @@ func addRoutes(
 	mux.Handle("/auth/google/callback", handler(auth.HandleAuthCallback()))
 
 	mux.Handle("GET /events/{id}", handler(auth.Middleware(events.HandleGetEvent(eventScraper, eventCache))))
+
+	mux.Handle("GET /events/{id}/picks", handler(auth.Middleware(events.HandleGetPicks(eventScraper, eventCache, eventPicks))))
 	mux.Handle("POST /events/{id}/picks", handler(auth.Middleware(events.HandlePostPicks(eventScraper, eventCache, eventPicks))))
 
 	mux.Handle("/", http.NotFoundHandler())

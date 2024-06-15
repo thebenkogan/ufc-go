@@ -26,6 +26,28 @@ type EventPicks struct {
 	Winners []string `json:"winners"`
 }
 
+func HandleGetPicks(eventScraper EventScraper, eventCache cache.EventCacheRepository, eventPicks picks.EventPicksRepository) util.Handler {
+	return func(w http.ResponseWriter, r *http.Request) error {
+		user, ok := r.Context().Value("user").(auth.User)
+		if !ok {
+			return fmt.Errorf("no user in context")
+		}
+
+		eventId := r.PathValue("id")
+		event, err := getEventWithCache(r.Context(), eventScraper, eventCache, eventId)
+		if err != nil {
+			return err
+		}
+
+		picks, err := eventPicks.GetPicks(r.Context(), user, event.Id)
+		if err != nil {
+			return err
+		}
+		util.Encode(w, http.StatusOK, picks)
+		return nil
+	}
+}
+
 func HandlePostPicks(eventScraper EventScraper, eventCache cache.EventCacheRepository, eventPicks picks.EventPicksRepository) util.Handler {
 	return func(w http.ResponseWriter, r *http.Request) error {
 		var picks EventPicks
@@ -53,7 +75,7 @@ func HandlePostPicks(eventScraper EventScraper, eventCache cache.EventCacheRepos
 			return fmt.Errorf("no user in context")
 		}
 
-		if err := eventPicks.SavePicks(r.Context(), user, id, pickedFighters); err != nil {
+		if err := eventPicks.SavePicks(r.Context(), user, event.Id, pickedFighters); err != nil {
 			return fmt.Errorf("error saving picks: %w", err)
 		}
 

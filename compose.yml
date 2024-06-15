@@ -6,3 +6,13 @@ services:
     ports:
       - '${REDIS_PORT}:6379'
     command: redis-server --save 20 1
+  db:
+    image: postgres:16
+    restart: always
+    ports:
+      - '${POSTGRES_PORT}:5432'
+    volumes:
+      - ./initdb:/docker-entrypoint-initdb.d
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}

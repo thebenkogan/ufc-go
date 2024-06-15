@@ -109,6 +109,7 @@ func (a *GoogleAuth) Middleware(h util.Handler) util.Handler {
 
 		idToken, err := a.tokenVerifier.Verify(r.Context(), idTokenCookie.Value)
 		if err != nil {
+			fmt.Println(err)
 			http.Redirect(w, r, "/login", http.StatusFound)
 			return nil
 		}

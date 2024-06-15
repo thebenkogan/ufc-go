@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joho/godotenv"
 	"github.com/redis/go-redis/v9"
 	"github.com/thebenkogan/ufc/internal/auth"
@@ -50,7 +51,26 @@ func run(ctx context.Context) error {
 		return fmt.Errorf("error pinging redis cache: %w", err)
 	}
 	eventCache := cache.NewRedisEventCache(rdb)
-	eventPicks := picks.NewRedisEventPicks(rdb)
+
+	pgUrl := fmt.Sprintf(
+		"postgres://%s:%s@%s:%s/%s",
+		os.Getenv("POSTGRES_USER"),
+		os.Getenv("POSTGRES_PASSWORD"),
+		os.Getenv("POSTGRES_HOST"),
+		os.Getenv("POSTGRES_PORT"),
+		os.Getenv("POSTGRES_USER"),
+	)
+	pgCfg, err := pgxpool.ParseConfig(pgUrl)
+	if err != nil {
+		return fmt.Errorf("error parsing postgres URL: %w", err)
+	}
+	pool, err := pgxpool.NewWithConfig(ctx, pgCfg)
+	if err != nil {
+		return fmt.Errorf("error creating postgres pool: %w", err)
+	}
+	defer pool.Close()
+
+	eventPicks := picks.NewPostgresEventPicks(pool)
 
 	srv := server.NewServer(auth, events.NewESPNEventScraper(), eventCache, eventPicks)
 	httpServer := &http.Server{
