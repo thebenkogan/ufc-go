@@ -43,6 +43,10 @@ func HandleGetPicks(eventScraper EventScraper, eventCache cache.EventCacheReposi
 		if err != nil {
 			return err
 		}
+		if picks == nil {
+			http.Error(w, "no picks made for this event", http.StatusNotFound)
+			return nil
+		}
 
 		if picks.Score == nil && event.IsFinished() {
 			score := scorePicks(event, picks.Winners)

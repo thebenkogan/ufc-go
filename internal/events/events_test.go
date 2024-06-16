@@ -71,3 +71,31 @@ func TestValidatePicks(t *testing.T) {
 		})
 	}
 }
+
+func TestScorePicks(t *testing.T) {
+	event := &model.Event{StartTime: "LIVE", Fights: []model.Fight{
+		{Fighters: []string{"A", "B"}, Winner: "A"},
+		{Fighters: []string{"C", "D"}, Winner: "D"},
+		{Fighters: []string{"E", "F"}, Winner: "E"},
+	}}
+
+	scoreTests := []struct {
+		picks []string
+		score int
+	}{
+		{[]string{"A", "D", "E"}, 3},
+		{[]string{"A", "D", "F"}, 2},
+		{[]string{"A"}, 1},
+		{[]string{"B", "C", "F"}, 0},
+		{[]string{"F"}, 0},
+	}
+
+	for _, tt := range scoreTests {
+		t.Run(fmt.Sprintf("picks: %v, score: %v", tt.picks, tt.score), func(t *testing.T) {
+			got := scorePicks(event, tt.picks)
+			if got != tt.score {
+				t.Errorf("got %v, want %v", got, tt.score)
+			}
+		})
+	}
+}
