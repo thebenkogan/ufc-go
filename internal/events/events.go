@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"slices"
 	"time"
 
 	"github.com/thebenkogan/ufc/internal/cache"
@@ -102,4 +103,14 @@ func validatePicks(event *model.Event, picks []string) error {
 	}
 
 	return nil
+}
+
+func scorePicks(event *model.Event, picks []string) int {
+	score := 0
+	for _, fight := range event.Fights {
+		if slices.Contains(picks, fight.Winner) {
+			score++
+		}
+	}
+	return score
 }

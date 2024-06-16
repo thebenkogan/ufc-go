@@ -43,6 +43,15 @@ func HandleGetPicks(eventScraper EventScraper, eventCache cache.EventCacheReposi
 		if err != nil {
 			return err
 		}
+
+		if picks.Score == nil && event.IsFinished() {
+			score := scorePicks(event, picks.Winners)
+			picks.Score = &score
+			if err = eventPicks.ScorePicks(r.Context(), user, event.Id, score); err != nil {
+				return err
+			}
+		}
+
 		util.Encode(w, http.StatusOK, picks)
 		return nil
 	}

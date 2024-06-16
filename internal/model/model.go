@@ -18,6 +18,15 @@ func (e *Event) HasStarted() bool {
 	return time.Now().After(t)
 }
 
+func (e *Event) IsFinished() bool {
+	for _, fight := range e.Fights {
+		if fight.Winner == "" {
+			return false
+		}
+	}
+	return true
+}
+
 type Fight struct {
 	Fighters []string `json:"fighters"`
 	Winner   string   `json:"winner,omitempty"`
