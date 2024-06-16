@@ -29,7 +29,7 @@ func NewGoogleAuth(ctx context.Context, clientId, clientSecret string) (*GoogleA
 		ClientID:     clientId,
 		ClientSecret: clientSecret,
 		Endpoint:     provider.Endpoint(),
-		RedirectURL:  "http://localhost:8080/auth/google/callback",
+		RedirectURL:  "http://localhost:5173/auth/google/callback",
 		Scopes:       []string{oidc.ScopeOpenID, "profile", "email"},
 	}
 	return &GoogleAuth{provider, config, verifier}, nil
@@ -93,8 +93,6 @@ func (a *GoogleAuth) HandleAuthCallback() util.Handler {
 		}
 
 		setCookie(w, r, "id_token", rawIDToken)
-		w.Write([]byte("Hello, " + user.Name))
-
 		return nil
 	}
 }
@@ -103,14 +101,13 @@ func (a *GoogleAuth) Middleware(h util.Handler) util.Handler {
 	return func(w http.ResponseWriter, r *http.Request) error {
 		idTokenCookie, err := r.Cookie("id_token")
 		if err == http.ErrNoCookie {
-			http.Redirect(w, r, "/login", http.StatusFound)
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return nil
 		}
 
 		idToken, err := a.tokenVerifier.Verify(r.Context(), idTokenCookie.Value)
 		if err != nil {
-			fmt.Println(err)
-			http.Redirect(w, r, "/login", http.StatusFound)
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return nil
 		}
 

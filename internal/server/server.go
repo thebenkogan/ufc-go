@@ -4,6 +4,7 @@ import (
 	"log/slog"
 	"net/http"
 
+	"github.com/rs/cors"
 	"github.com/thebenkogan/ufc/internal/auth"
 	"github.com/thebenkogan/ufc/internal/cache"
 	"github.com/thebenkogan/ufc/internal/events"
@@ -14,7 +15,11 @@ import (
 func NewServer(auth auth.OIDCAuth, eventScraper events.EventScraper, eventCache cache.EventCacheRepository, eventPicks picks.EventPicksRepository) http.Handler {
 	mux := http.NewServeMux()
 	addRoutes(mux, auth, eventScraper, eventCache, eventPicks)
-	return mux
+	handler := cors.New(cors.Options{
+		AllowedOrigins:   []string{"http://localhost:5173"},
+		AllowCredentials: true,
+	}).Handler(mux)
+	return handler
 }
 
 // wrapper for http.HandlerFuncs that return errors

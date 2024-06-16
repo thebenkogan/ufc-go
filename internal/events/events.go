@@ -36,7 +36,6 @@ func getEventWithCache(ctx context.Context, eventScraper EventScraper, eventCach
 	slog.Info("parsed event, storing to cache")
 
 	ttl := freshTime(event)
-	fmt.Println(ttl)
 	if err := eventCache.SetEvent(ctx, event.Id, event, ttl); err != nil {
 		slog.Warn("failed to cache event", "error", err)
 	}
@@ -45,7 +44,6 @@ func getEventWithCache(ctx context.Context, eventScraper EventScraper, eventCach
 			// don't cache latest key forever when event is over
 			ttl = time.Hour
 		}
-		fmt.Println(ttl)
 		if err := eventCache.SetEvent(ctx, eventLatest, event, ttl); err != nil {
 			slog.Warn("failed to cache latest event", "error", err)
 		}
