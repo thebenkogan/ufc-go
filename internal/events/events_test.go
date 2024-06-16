@@ -23,7 +23,7 @@ func TestFreshTime(t *testing.T) {
 
 	for _, tt := range freshTimeTests {
 		t.Run(fmt.Sprintf("event start time: %v, expected duration: %v", tt.startTime.Format(time.RFC1123), tt.expected), func(t *testing.T) {
-			event := &model.Event{StartTime: tt.startTime.Format(time.RFC3339)}
+			event := &model.Event{StartTime: tt.startTime.Format(time.RFC3339), Fights: []model.Fight{{Fighters: []string{"A", "B"}}}}
 			got := freshTime(event)
 			if math.Abs(got.Seconds()-tt.expected.Seconds()) > 1 {
 				t.Errorf("got %v, want %v", got, tt.expected)
@@ -32,7 +32,7 @@ func TestFreshTime(t *testing.T) {
 	}
 
 	t.Run("Should return duringFreshTime when event is LIVE", func(t *testing.T) {
-		event := &model.Event{StartTime: "LIVE"}
+		event := &model.Event{StartTime: "LIVE", Fights: []model.Fight{{Fighters: []string{"A", "B"}}}}
 		got := freshTime(event)
 		if got != duringFreshTime {
 			t.Errorf("got %v, want %v", got, duringFreshTime)

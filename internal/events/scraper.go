@@ -21,7 +21,7 @@ func NewESPNEventScraper() *ESPNEventScraper {
 }
 
 func (_ ESPNEventScraper) makeUrl(id string) string {
-	if id == "latest" {
+	if id == eventLatest {
 		return "https://www.espn.com/mma/fightcenter"
 	}
 	return fmt.Sprintf("https://www.espn.com/mma/fightcenter/_/id/%s/league/ufc", id)

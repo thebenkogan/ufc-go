@@ -11,6 +11,8 @@ import (
 	"github.com/thebenkogan/ufc/internal/model"
 )
 
+const eventLatest string = "latest"
+
 func getEventWithCache(ctx context.Context, eventScraper EventScraper, eventCache cache.EventCacheRepository, id string) (*model.Event, error) {
 	slog.Info(fmt.Sprintf("Getting event, ID: %s", id))
 
@@ -33,8 +35,21 @@ func getEventWithCache(ctx context.Context, eventScraper EventScraper, eventCach
 
 	slog.Info("parsed event, storing to cache")
 
-	if err := eventCache.SetEvent(ctx, id, event, freshTime(event)); err != nil {
+	ttl := freshTime(event)
+	fmt.Println(ttl)
+	if err := eventCache.SetEvent(ctx, event.Id, event, ttl); err != nil {
 		slog.Warn("failed to cache event", "error", err)
+	}
+	if id == eventLatest {
+		if event.IsFinished() {
+			// don't cache latest key forever when event is over
+			ttl = time.Hour
+		}
+		fmt.Println(ttl)
+		if err := eventCache.SetEvent(ctx, eventLatest, event, ttl); err != nil {
+			slog.Warn("failed to cache latest event", "error", err)
+		}
+
 	}
 
 	return event, nil
@@ -50,6 +65,11 @@ const (
 // during the event (LIVE), it is fresh for duringFreshTime
 // after the event, it is fresh forever (0)
 func freshTime(event *model.Event) time.Duration {
+	if event.IsFinished() {
+		// event is over, keep forever
+		return 0
+	}
+
 	if event.StartTime == "LIVE" {
 		return duringFreshTime
 	}
@@ -70,7 +90,6 @@ func freshTime(event *model.Event) time.Duration {
 		}
 	}
 
-	// event is over, keep forever
 	return 0
 }
 
