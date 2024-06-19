@@ -8,3 +8,8 @@ export type Fight = {
   fighters: string[];
   winner?: string;
 };
+
+export type Picks = {
+  winners: string[];
+  score?: number;
+};
