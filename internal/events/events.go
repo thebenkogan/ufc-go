@@ -92,10 +92,6 @@ func freshTime(event *model.Event) time.Duration {
 }
 
 func validatePicks(event *model.Event, picks []string) error {
-	if len(picks) == 0 {
-		return fmt.Errorf("no picks provided")
-	}
-
 	if len(picks) > len(event.Fights) {
 		return fmt.Errorf("too many picks")
 	}

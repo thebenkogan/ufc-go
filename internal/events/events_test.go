@@ -51,7 +51,7 @@ func TestValidatePicks(t *testing.T) {
 		picks []string
 		valid bool
 	}{
-		{[]string{}, false},
+		{[]string{}, true},
 		{[]string{"A", "C", "E", "D"}, false},
 		{[]string{"A", "B", "C"}, false},
 		{[]string{"G"}, false},
