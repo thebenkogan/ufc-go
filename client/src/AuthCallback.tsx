@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { authCallback } from "./api";
+import FullscreenText from "./components/FullscreenText";
 
 function AuthCallback() {
   const navigate = useNavigate();
@@ -11,11 +12,7 @@ function AuthCallback() {
     });
   }, [navigate]);
 
-  return (
-    <div className="flex h-screen justify-center items-center text-xl">
-      Loading...
-    </div>
-  );
+  return <FullscreenText text="Authenticating..." />;
 }
 
 export default AuthCallback;
