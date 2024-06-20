@@ -1,0 +1,5 @@
+- refactor frontend into components
+- display winners + score (read-only state)
+- parse event name and display
+- view all past picks + event
+- aggregate pick stats

@@ -9,9 +9,13 @@ function AuthCallback() {
     authCallback().then(() => {
       navigate("/");
     });
-  });
+  }, [navigate]);
 
-  return <div className="bg-blue-300">auth callback</div>;
+  return (
+    <div className="flex h-screen justify-center items-center text-xl">
+      Loading...
+    </div>
+  );
 }
 
 export default AuthCallback;
