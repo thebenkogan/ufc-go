@@ -16,7 +16,6 @@ function Home() {
   } = useEventWithPicks(HOME_EVENT_ID);
   const event = eventData?.event;
   const eventPicks = eventData?.winners;
-  console.log(eventData);
   const [localPicks, setLocalPicks] = useState<string[]>([]);
   const [prevServerPicks, setPrevServerPicks] = useState(eventPicks);
   const queryClient = useQueryClient();
@@ -25,7 +24,7 @@ function Home() {
     mutationFn: (picks: string[]) => postPicks(HOME_EVENT_ID, picks),
     onSuccess: () => {
       return queryClient.invalidateQueries({
-        queryKey: ["events/latest/picks"],
+        queryKey: [`events/${HOME_EVENT_ID}/picks`],
       });
     },
   });
