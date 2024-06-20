@@ -4,19 +4,31 @@ interface EventDisplayProps {
   event: Event;
   picks: string[];
   onClickFighter: (fighter: string, opponent: string) => void;
+  score?: number;
 }
 
-function EventDisplay({ event, picks, onClickFighter }: EventDisplayProps) {
+function EventDisplay({
+  event,
+  picks,
+  onClickFighter,
+  score,
+}: EventDisplayProps) {
   const startTime = new Date(event.start_time);
   return (
-    <div className="flex flex-col h-full items-stretch">
-      <div>
-        <h1 className="text-4xl text-center">Event {event.id}</h1>
-        <h2 className="text-xl text-center">
-          {startTime.toDateString()} at {startTime.toLocaleTimeString()}
-        </h2>
+    <div className="flex flex-col h-full">
+      <div className="flex flex-col items-center">
+        <h1 className="text-4xl font-bold">Event {event.id}</h1>
+        <div className="flex flex-row w-7/12 items-center justify-between">
+          <p className="text-xl">
+            {startTime.toDateString() +
+              (startTime > new Date()
+                ? ` at ${startTime.toLocaleTimeString()}`
+                : "")}
+          </p>
+          {score !== undefined && <p className="text-xl">Score: {score}</p>}
+        </div>
       </div>
-      <div className="flex-grow flex flex-col justify-center items-center">
+      <div className="flex-grow flex flex-col items-center">
         {event.fights.map((fight, index) => (
           <div
             key={index}
@@ -33,7 +45,8 @@ function EventDisplay({ event, picks, onClickFighter }: EventDisplayProps) {
                     : "bg-slate-500 hover:bg-slate-600"
                 } p-2 rounded-lg font-bold`}
               >
-                {fight.fighters[0]}
+                {fight.fighters[0] +
+                  (fight.winner === fight.fighters[0] ? " 🏆" : "")}
               </button>
               <p className="flex-1 text-center text-xl font-bold">vs</p>
               <button
@@ -46,7 +59,8 @@ function EventDisplay({ event, picks, onClickFighter }: EventDisplayProps) {
                     : "bg-slate-500 hover:bg-slate-600"
                 } p-2 rounded-lg font-bold`}
               >
-                {fight.fighters[1]}
+                {fight.fighters[1] +
+                  (fight.winner === fight.fighters[1] ? " 🏆" : "")}
               </button>
             </div>
           </div>

@@ -3,17 +3,20 @@ import { postPicks, useEvent, useEventPicks } from "./api";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import FullscreenText from "./components/FullscreenText";
 import SavePicksBox from "./components/SavePicksBox";
-import EventDisplay from "./components/Event";
+import EventDisplay from "./components/EventDisplay";
+import toast from "react-hot-toast";
+
+const HOME_EVENT_ID = "600041053";
 
 function Home() {
-  const { data: latestEvent, error } = useEvent("latest");
-  const latestPicks = useEventPicks("latest");
+  const { data: latestEvent, error } = useEvent(HOME_EVENT_ID);
+  const latestPicks = useEventPicks(HOME_EVENT_ID);
   const [localPicks, setLocalPicks] = useState<string[]>([]);
   const [prevServerPicks, setPrevServerPicks] = useState(latestPicks.data);
   const queryClient = useQueryClient();
 
   const picksMutation = useMutation({
-    mutationFn: (picks: string[]) => postPicks("latest", picks),
+    mutationFn: (picks: string[]) => postPicks(HOME_EVENT_ID, picks),
     onSuccess: () => {
       return queryClient.invalidateQueries({
         queryKey: ["events/latest/picks"],
@@ -36,14 +39,23 @@ function Home() {
     return <FullscreenText text="Loading event..." />;
   }
 
+  const eventHasStarted =
+    latestEvent.start_time === "LIVE" ||
+    new Date() > new Date(latestEvent.start_time);
+
   const clickFighterHandler = (fighter: string, opponent: string) => {
     if (latestPicks.isLoading) {
+      toast.loading("Loading your picks...");
+      return;
+    }
+    if (eventHasStarted) {
+      toast.error("Event has already started, picks are locked");
       return;
     }
     if (localPicks.includes(fighter)) {
       setLocalPicks(localPicks.filter((pick) => pick !== fighter));
     } else if (localPicks.includes(opponent)) {
-      alert("You can't pick both fighters in a fight");
+      toast.error("You can't pick both fighters in a fight");
     } else {
       setLocalPicks([...localPicks, fighter]);
     }
@@ -69,6 +81,7 @@ function Home() {
           event={latestEvent}
           picks={localPicks}
           onClickFighter={clickFighterHandler}
+          score={latestPicks.data?.score}
         />
       </div>
     </>
