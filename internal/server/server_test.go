@@ -187,7 +187,7 @@ func TestServer(t *testing.T) {
 		ts := httptest.NewServer(srv)
 		defer ts.Close()
 
-		testPicks := events.EventPicks{
+		testPicks := events.PostEventPicksRequest{
 			Winners: []string{"A", "D", "F"},
 		}
 		var buf bytes.Buffer

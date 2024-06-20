@@ -1,4 +1,3 @@
-- get event + picks endpoint (all in one)
 - parse event name and display
 - view all past picks + event
 - aggregate pick stats

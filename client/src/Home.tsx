@@ -1,18 +1,24 @@
 import { useState } from "react";
-import { postPicks, useEvent, useEventPicks } from "./api";
+import { postPicks, useEventWithPicks } from "./api";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import FullscreenText from "./components/FullscreenText";
 import SavePicksBox from "./components/SavePicksBox";
 import EventDisplay from "./components/EventDisplay";
 import toast from "react-hot-toast";
 
-const HOME_EVENT_ID = "600041053";
+const HOME_EVENT_ID = "latest";
 
 function Home() {
-  const { data: latestEvent, error } = useEvent(HOME_EVENT_ID);
-  const latestPicks = useEventPicks(HOME_EVENT_ID);
+  const {
+    data: eventData,
+    error,
+    isLoading,
+  } = useEventWithPicks(HOME_EVENT_ID);
+  const event = eventData?.event;
+  const eventPicks = eventData?.winners;
+  console.log(eventData);
   const [localPicks, setLocalPicks] = useState<string[]>([]);
-  const [prevServerPicks, setPrevServerPicks] = useState(latestPicks.data);
+  const [prevServerPicks, setPrevServerPicks] = useState(eventPicks);
   const queryClient = useQueryClient();
 
   const picksMutation = useMutation({
@@ -24,10 +30,10 @@ function Home() {
     },
   });
 
-  if (prevServerPicks !== latestPicks.data) {
-    setPrevServerPicks(latestPicks.data);
+  if (prevServerPicks !== eventPicks) {
+    setPrevServerPicks(eventPicks);
     if (localPicks.length === 0) {
-      setLocalPicks(latestPicks.data?.winners || []);
+      setLocalPicks(eventPicks || []);
     }
   }
 
@@ -35,16 +41,15 @@ function Home() {
     return <FullscreenText text="Error loading event" />;
   }
 
-  if (!latestEvent) {
+  if (!event) {
     return <FullscreenText text="Loading event..." />;
   }
 
   const eventHasStarted =
-    latestEvent.start_time === "LIVE" ||
-    new Date() > new Date(latestEvent.start_time);
+    event.start_time === "LIVE" || new Date() > new Date(event.start_time);
 
   const clickFighterHandler = (fighter: string, opponent: string) => {
-    if (latestPicks.isLoading) {
+    if (isLoading) {
       toast.loading("Loading your picks...");
       return;
     }
@@ -62,8 +67,7 @@ function Home() {
   };
 
   const hasPickChanges =
-    localPicks.sort().toString() !==
-    (latestPicks.data?.winners.sort().toString() ?? "");
+    localPicks.sort().toString() !== (eventPicks?.sort().toString() ?? "");
 
   return (
     <>
@@ -72,16 +76,16 @@ function Home() {
           <SavePicksBox
             isSaving={picksMutation.isPending}
             onSave={() => picksMutation.mutate(localPicks)}
-            onRevert={() => setLocalPicks(latestPicks.data?.winners || [])}
+            onRevert={() => setLocalPicks(eventPicks || [])}
           />
         </div>
       )}
       <div className="h-screen">
         <EventDisplay
-          event={latestEvent}
+          event={event}
           picks={localPicks}
           onClickFighter={clickFighterHandler}
-          score={latestPicks.data?.score}
+          score={eventData?.score}
         />
       </div>
     </>

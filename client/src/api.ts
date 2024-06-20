@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import type { Event, Picks } from "./types";
+import type { EventWithPicks } from "./types";
 
 const API_URL = "http://localhost:8080/";
 
@@ -21,25 +21,12 @@ export function authCallback() {
   return callApi("auth/google/callback" + window.location.search);
 }
 
-export function useEvent(eventId: string) {
-  return useQuery<Event>({
-    queryKey: [`events/${eventId}`],
-    queryFn: () => callApi<Event>(`events/${eventId}`),
-    staleTime: 1000 * 60 * 20,
-  });
-}
-
-export function useEventPicks(eventId: string) {
-  return useQuery<Picks>({
+export function useEventWithPicks(eventId: string) {
+  return useQuery<EventWithPicks>({
     queryKey: [`events/${eventId}/picks`],
-    queryFn: () => callApi<Picks>(`events/${eventId}/picks`),
+    queryFn: () =>
+      callApi<EventWithPicks>(`events/${eventId}/picks?with_event=true`),
     staleTime: 1000 * 60 * 20,
-    retry(failureCount, error) {
-      if (error.message === "Not Found") {
-        return false;
-      }
-      return failureCount < 3;
-    },
   });
 }
 

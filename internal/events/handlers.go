@@ -6,6 +6,7 @@ import (
 
 	"github.com/thebenkogan/ufc/internal/auth"
 	"github.com/thebenkogan/ufc/internal/cache"
+	"github.com/thebenkogan/ufc/internal/model"
 	"github.com/thebenkogan/ufc/internal/picks"
 	"github.com/thebenkogan/ufc/internal/util"
 )
@@ -22,8 +23,9 @@ func HandleGetEvent(eventScraper EventScraper, eventCache cache.EventCacheReposi
 	}
 }
 
-type EventPicks struct {
-	Winners []string `json:"winners"`
+type GetPicksResponse struct {
+	picks.Picks
+	Event *model.Event `json:"event,omitempty"`
 }
 
 func HandleGetPicks(eventScraper EventScraper, eventCache cache.EventCacheRepository, eventPicks picks.EventPicksRepository) util.Handler {
@@ -39,31 +41,43 @@ func HandleGetPicks(eventScraper EventScraper, eventCache cache.EventCacheReposi
 			return err
 		}
 
-		picks, err := eventPicks.GetPicks(r.Context(), user, event.Id)
+		userPicks, err := eventPicks.GetPicks(r.Context(), user, event.Id)
 		if err != nil {
 			return err
 		}
-		if picks == nil {
-			http.Error(w, "no picks made for this event", http.StatusNotFound)
-			return nil
+		if userPicks == nil {
+			userPicks = &picks.Picks{Winners: []string{}}
 		}
 
-		if picks.Score == nil && event.IsFinished() {
-			score := scorePicks(event, picks.Winners)
-			picks.Score = &score
+		if userPicks.Score == nil && event.IsFinished() && len(userPicks.Winners) > 0 {
+			score := scorePicks(event, userPicks.Winners)
+			userPicks.Score = &score
 			if err = eventPicks.ScorePicks(r.Context(), user, event.Id, score); err != nil {
 				return err
 			}
 		}
 
-		util.Encode(w, http.StatusOK, picks)
+		resp := GetPicksResponse{
+			Picks: *userPicks,
+		}
+
+		withEvent := r.URL.Query().Get("with_event")
+		if withEvent != "" {
+			resp.Event = event
+		}
+
+		util.Encode(w, http.StatusOK, resp)
 		return nil
 	}
 }
 
+type PostEventPicksRequest struct {
+	Winners []string `json:"winners"`
+}
+
 func HandlePostPicks(eventScraper EventScraper, eventCache cache.EventCacheRepository, eventPicks picks.EventPicksRepository) util.Handler {
 	return func(w http.ResponseWriter, r *http.Request) error {
-		var picks EventPicks
+		var picks PostEventPicksRequest
 		util.Decode(r, &picks)
 		pickedFighters := util.Distinct(picks.Winners)
 
