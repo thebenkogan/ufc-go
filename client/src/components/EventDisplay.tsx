@@ -19,12 +19,16 @@ function EventDisplay({
       <div className="flex flex-col items-center">
         <h1 className="text-4xl font-bold">Event {event.id}</h1>
         <div className="flex flex-row w-7/12 items-center justify-between">
-          <p className="text-xl">
-            {startTime.toDateString() +
-              (startTime > new Date()
-                ? ` at ${startTime.toLocaleTimeString()}`
-                : "")}
-          </p>
+          {event.start_time === "LIVE" ? (
+            <p className="text-2xl font-bold text-red-500">LIVE 🔴</p>
+          ) : (
+            <p className="text-xl">
+              {startTime.toDateString() +
+                (startTime > new Date()
+                  ? ` at ${startTime.toLocaleTimeString()}`
+                  : "")}
+            </p>
+          )}
           {score !== undefined && <p className="text-xl">Score: {score}</p>}
         </div>
       </div>
