@@ -1,5 +1,6 @@
 export type Event = {
   id: string;
+  name: string;
   start_time: string;
   fights: Fight[];
 };

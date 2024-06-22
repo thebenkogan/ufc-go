@@ -75,6 +75,9 @@ func (e ESPNEventScraper) ScrapeEvent(id string) (*model.Event, error) {
 
 	c.OnHTML("div.MMAEventHeader__Event div.flex-column", func(e *colly.HTMLElement) {
 		e.ForEach("*", func(_ int, el *colly.HTMLElement) {
+			if el.Index == 0 {
+				event.Name = el.Text
+			}
 			if el.Index == 1 {
 				eventDate = el.Text
 			}

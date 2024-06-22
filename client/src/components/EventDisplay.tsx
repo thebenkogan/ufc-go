@@ -17,7 +17,7 @@ function EventDisplay({
   return (
     <div className="flex flex-col h-full">
       <div className="flex flex-col items-center">
-        <h1 className="text-4xl font-bold">Event {event.id}</h1>
+        <h1 className="text-4xl font-bold pt-2">{event.name}</h1>
         <div className="flex flex-row w-7/12 items-center justify-between">
           {event.start_time === "LIVE" ? (
             <p className="text-2xl font-bold text-red-500">LIVE 🔴</p>
