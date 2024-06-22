@@ -1,3 +1,9 @@
+export type User = {
+  sub: string;
+  email: string;
+  name: string;
+};
+
 export type Event = {
   id: string;
   name: string;
@@ -13,8 +19,4 @@ export type Fight = {
 export type Picks = {
   winners: string[];
   score?: number;
-};
-
-export type EventWithPicks = Picks & {
-  event: Event;
 };

@@ -12,9 +12,9 @@ import (
 	"github.com/thebenkogan/ufc/internal/util"
 )
 
-func NewServer(auth auth.OIDCAuth, eventScraper events.EventScraper, eventCache cache.EventCacheRepository, eventPicks picks.EventPicksRepository) http.Handler {
+func NewServer(oauth auth.OIDCAuth, eventScraper events.EventScraper, eventCache cache.EventCacheRepository, eventPicks picks.EventPicksRepository) http.Handler {
 	mux := http.NewServeMux()
-	addRoutes(mux, auth, eventScraper, eventCache, eventPicks)
+	addRoutes(mux, oauth, eventScraper, eventCache, eventPicks)
 	handler := cors.New(cors.Options{
 		AllowedOrigins:   []string{"http://localhost:5173"},
 		AllowCredentials: true,
@@ -34,18 +34,19 @@ func handler(h util.Handler) http.HandlerFunc {
 
 func addRoutes(
 	mux *http.ServeMux,
-	auth auth.OIDCAuth,
+	oauth auth.OIDCAuth,
 	eventScraper events.EventScraper,
 	eventCache cache.EventCacheRepository,
 	eventPicks picks.EventPicksRepository,
 ) {
-	mux.Handle("/login", handler(auth.HandleBeginAuth()))
-	mux.Handle("/auth/google/callback", handler(auth.HandleAuthCallback()))
+	mux.Handle("/login", handler(oauth.HandleBeginAuth()))
+	mux.Handle("/auth/google/callback", handler(oauth.HandleAuthCallback()))
+	mux.Handle("/me", handler(auth.HandleMe(oauth)))
 
-	mux.Handle("GET /events/{id}", handler(auth.Middleware(events.HandleGetEvent(eventScraper, eventCache))))
+	mux.Handle("GET /events/{id}", handler((events.HandleGetEvent(eventScraper, eventCache))))
 
-	mux.Handle("GET /events/{id}/picks", handler(auth.Middleware(events.HandleGetPicks(eventScraper, eventCache, eventPicks))))
-	mux.Handle("POST /events/{id}/picks", handler(auth.Middleware(events.HandlePostPicks(eventScraper, eventCache, eventPicks))))
+	mux.Handle("GET /events/{id}/picks", handler(oauth.Middleware(events.HandleGetPicks(eventScraper, eventCache, eventPicks))))
+	mux.Handle("POST /events/{id}/picks", handler(oauth.Middleware(events.HandlePostPicks(eventScraper, eventCache, eventPicks))))
 
 	mux.Handle("/", http.NotFoundHandler())
 }

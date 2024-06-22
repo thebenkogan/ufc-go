@@ -1,30 +1,53 @@
 import { useState } from "react";
-import { postPicks, useEventWithPicks } from "./api";
+import { postPicks, useEvent, usePicks, useUser } from "./api";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import FullscreenText from "./components/FullscreenText";
 import SavePicksBox from "./components/SavePicksBox";
 import EventDisplay from "./components/EventDisplay";
 import toast from "react-hot-toast";
+import type { Event } from "./types";
 
 const HOME_EVENT_ID = "latest";
 
 function Home() {
-  const {
-    data: eventData,
-    error,
-    isLoading,
-  } = useEventWithPicks(HOME_EVENT_ID);
-  const event = eventData?.event;
-  const eventPicks = eventData?.winners;
+  const { data: event } = useEvent(HOME_EVENT_ID);
+  const user = useUser();
+
+  if (!event || user.isLoading) {
+    return <FullscreenText text="Loading..." />;
+  }
+
+  return user.data ? (
+    <EventWithPickControl eventId={HOME_EVENT_ID} event={event} />
+  ) : (
+    <div className="h-screen">
+      <EventDisplay
+        event={event}
+        picks={[]}
+        onClickFighter={() => {}}
+        score={undefined}
+      />
+    </div>
+  );
+}
+
+interface EventWithPickControlProps {
+  eventId: string;
+  event: Event;
+}
+
+function EventWithPickControl({ event, eventId }: EventWithPickControlProps) {
+  const picks = usePicks(eventId);
+  const eventPicks = picks.data?.winners;
   const [localPicks, setLocalPicks] = useState<string[]>([]);
   const [prevServerPicks, setPrevServerPicks] = useState(eventPicks);
   const queryClient = useQueryClient();
 
   const picksMutation = useMutation({
-    mutationFn: (picks: string[]) => postPicks(HOME_EVENT_ID, picks),
+    mutationFn: (picks: string[]) => postPicks(eventId, picks),
     onSuccess: () => {
       return queryClient.invalidateQueries({
-        queryKey: [`events/${HOME_EVENT_ID}/picks`],
+        queryKey: [`events/${eventId}/picks`],
       });
     },
   });
@@ -36,19 +59,11 @@ function Home() {
     }
   }
 
-  if (error) {
-    return <FullscreenText text="Error loading event" />;
-  }
-
-  if (!event) {
-    return <FullscreenText text="Loading event..." />;
-  }
-
   const eventHasStarted =
     event.start_time === "LIVE" || new Date() > new Date(event.start_time);
 
   const clickFighterHandler = (fighter: string, opponent: string) => {
-    if (isLoading) {
+    if (picks.isLoading) {
       toast.loading("Loading your picks...");
       return;
     }
@@ -84,7 +99,7 @@ function Home() {
           event={event}
           picks={localPicks}
           onClickFighter={clickFighterHandler}
-          score={eventData?.score}
+          score={picks.data?.score}
         />
       </div>
     </>

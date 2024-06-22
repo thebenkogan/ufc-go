@@ -6,7 +6,6 @@ import (
 
 	"github.com/thebenkogan/ufc/internal/auth"
 	"github.com/thebenkogan/ufc/internal/cache"
-	"github.com/thebenkogan/ufc/internal/model"
 	"github.com/thebenkogan/ufc/internal/picks"
 	"github.com/thebenkogan/ufc/internal/util"
 )
@@ -21,11 +20,6 @@ func HandleGetEvent(eventScraper EventScraper, eventCache cache.EventCacheReposi
 		util.Encode(w, http.StatusOK, event)
 		return nil
 	}
-}
-
-type GetPicksResponse struct {
-	picks.Picks
-	Event *model.Event `json:"event,omitempty"`
 }
 
 func HandleGetPicks(eventScraper EventScraper, eventCache cache.EventCacheRepository, eventPicks picks.EventPicksRepository) util.Handler {
@@ -57,16 +51,7 @@ func HandleGetPicks(eventScraper EventScraper, eventCache cache.EventCacheReposi
 			}
 		}
 
-		resp := GetPicksResponse{
-			Picks: *userPicks,
-		}
-
-		withEvent := r.URL.Query().Get("with_event")
-		if withEvent != "" {
-			resp.Event = event
-		}
-
-		util.Encode(w, http.StatusOK, resp)
+		util.Encode(w, http.StatusOK, userPicks)
 		return nil
 	}
 }
