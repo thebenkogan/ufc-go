@@ -17,6 +17,7 @@
     "react-router-dom": "^6.23.1"
   },
   "devDependencies": {
+    "@biomejs/biome": "1.8.2",
     "@tanstack/eslint-plugin-query": "^5.43.1",
     "@types/react": "^18.2.66",
     "@types/react-dom": "^18.2.22",
