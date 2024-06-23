@@ -93,6 +93,9 @@ func TestServer(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer pool.Close()
+	if _, err := pool.Exec(ctx, "TRUNCATE TABLE picks"); err != nil {
+		t.Fatal(err)
+	}
 
 	eventPicks := picks.NewPostgresEventPicks(pool)
 
