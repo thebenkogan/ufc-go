@@ -43,6 +43,7 @@ func addRoutes(
 	mux.Handle("/auth/google/callback", handler(oauth.HandleAuthCallback()))
 	mux.Handle("/me", handler(auth.HandleMe(oauth)))
 
+	mux.Handle("GET /events/picks", handler(oauth.Middleware(events.HandleGetAllPicks(eventScraper, eventCache, eventPicks))))
 	mux.Handle("GET /events/{id}", handler((events.HandleGetEvent(eventScraper, eventCache))))
 
 	mux.Handle("GET /events/{id}/picks", handler(oauth.Middleware(events.HandleGetPicks(eventScraper, eventCache, eventPicks))))

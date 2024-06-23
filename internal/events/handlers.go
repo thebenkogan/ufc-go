@@ -3,11 +3,14 @@ package events
 import (
 	"fmt"
 	"net/http"
+	"sync"
 
 	"github.com/thebenkogan/ufc/internal/auth"
 	"github.com/thebenkogan/ufc/internal/cache"
+	"github.com/thebenkogan/ufc/internal/model"
 	"github.com/thebenkogan/ufc/internal/picks"
 	"github.com/thebenkogan/ufc/internal/util"
+	"golang.org/x/sync/errgroup"
 )
 
 func HandleGetEvent(eventScraper EventScraper, eventCache cache.EventCacheRepository) util.Handler {
@@ -40,18 +43,77 @@ func HandleGetPicks(eventScraper EventScraper, eventCache cache.EventCacheReposi
 			return err
 		}
 		if userPicks == nil {
-			userPicks = &picks.Picks{Winners: []string{}}
+			userPicks = &picks.Picks{EventId: eventId, Winners: []string{}}
 		}
 
-		if userPicks.Score == nil && event.IsFinished() && len(userPicks.Winners) > 0 {
-			score := scorePicks(event, userPicks.Winners)
-			userPicks.Score = &score
-			if err = eventPicks.ScorePicks(r.Context(), user, event.Id, score); err != nil {
-				return err
-			}
+		if err := checkUpdatePicksScore(r.Context(), user, event, userPicks, eventPicks); err != nil {
+			return err
 		}
 
 		util.Encode(w, http.StatusOK, userPicks)
+		return nil
+	}
+}
+
+type GetAllPicksResponse struct {
+	*picks.Picks
+	Event *model.Event `json:"event"`
+}
+
+func HandleGetAllPicks(eventScraper EventScraper, eventCache cache.EventCacheRepository, eventPicks picks.EventPicksRepository) util.Handler {
+	return func(w http.ResponseWriter, r *http.Request) error {
+		user, ok := r.Context().Value("user").(auth.User)
+		if !ok {
+			return fmt.Errorf("no user in context")
+		}
+
+		userPicks, err := eventPicks.GetAllPicks(r.Context(), user)
+		if err != nil {
+			return fmt.Errorf("error getting all picks: %w", err)
+		}
+
+		eventIds := make([]string, 0, len(userPicks))
+		for _, pick := range userPicks {
+			eventIds = append(eventIds, pick.EventId)
+		}
+
+		eventMap, err := eventCache.GetEvents(r.Context(), eventIds)
+		if err != nil {
+			return fmt.Errorf("error getting events from IDs: %w", err)
+		}
+
+		group, gCtx := errgroup.WithContext(r.Context())
+		group.SetLimit(5)
+		var mu sync.Mutex
+		for _, up := range userPicks {
+			up := up
+			group.Go(func() error {
+				mu.Lock()
+				event, ok := eventMap[up.EventId]
+				mu.Unlock()
+				if !ok {
+					event, err := getEventWithCache(gCtx, eventScraper, eventCache, up.EventId)
+					if err != nil {
+						return err
+					}
+					mu.Lock()
+					eventMap[event.Id] = event
+					mu.Unlock()
+				}
+				return checkUpdatePicksScore(gCtx, user, event, up, eventPicks)
+			})
+		}
+
+		if err := group.Wait(); err != nil {
+			return fmt.Errorf("error processing events: %w", err)
+		}
+
+		res := make([]*GetAllPicksResponse, 0, len(userPicks))
+		for _, up := range userPicks {
+			res = append(res, &GetAllPicksResponse{Picks: up, Event: eventMap[up.EventId]})
+		}
+
+		util.Encode(w, http.StatusOK, res)
 		return nil
 	}
 }

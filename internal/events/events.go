@@ -7,8 +7,10 @@ import (
 	"slices"
 	"time"
 
+	"github.com/thebenkogan/ufc/internal/auth"
 	"github.com/thebenkogan/ufc/internal/cache"
 	"github.com/thebenkogan/ufc/internal/model"
+	"github.com/thebenkogan/ufc/internal/picks"
 )
 
 const eventLatest string = "latest"
@@ -115,6 +117,17 @@ func validatePicks(event *model.Event, picks []string) error {
 		pickedFights[fightId] = struct{}{}
 	}
 
+	return nil
+}
+
+func checkUpdatePicksScore(ctx context.Context, user auth.User, event *model.Event, userPicks *picks.Picks, eventPicks picks.EventPicksRepository) error {
+	if userPicks.Score == nil && event.IsFinished() && len(userPicks.Winners) > 0 {
+		score := scorePicks(event, userPicks.Winners)
+		userPicks.Score = &score
+		if err := eventPicks.ScorePicks(ctx, user, event.Id, score); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 

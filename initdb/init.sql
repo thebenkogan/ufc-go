@@ -3,6 +3,7 @@ CREATE TABLE IF NOT EXISTS picks (
   event_id VARCHAR(25) NOT NULL,
   picks TEXT[] NOT NULL,
   score SMALLINT,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (user_id, event_id)
 );
 
