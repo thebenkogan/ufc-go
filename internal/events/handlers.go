@@ -72,6 +72,11 @@ func HandleGetAllPicks(eventScraper EventScraper, eventCache cache.EventCacheRep
 			return fmt.Errorf("error getting all picks: %w", err)
 		}
 
+		if len(userPicks) == 0 {
+			util.Encode(w, http.StatusOK, []GetAllPicksResponse{})
+			return nil
+		}
+
 		eventIds := make([]string, 0, len(userPicks))
 		for _, pick := range userPicks {
 			eventIds = append(eventIds, pick.EventId)

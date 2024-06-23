@@ -20,3 +20,7 @@ export type Picks = {
 	winners: string[];
 	score?: number;
 };
+
+export type PicksWithEvent = Picks & {
+	event: Event;
+};
