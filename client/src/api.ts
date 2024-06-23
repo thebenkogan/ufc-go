@@ -37,6 +37,7 @@ export function useUser() {
 			}
 			return res.json();
 		},
+		staleTime: Number.POSITIVE_INFINITY,
 	});
 }
 
@@ -45,6 +46,7 @@ export function useEvent(eventId: string) {
 		queryKey: [`events/${eventId}`],
 		queryFn: () => callApi<Event>(`events/${eventId}`),
 		refetchInterval: 1000 * 60 * 5,
+		staleTime: Number.POSITIVE_INFINITY,
 	});
 }
 
@@ -52,7 +54,7 @@ export function usePicks(eventId: string) {
 	return useQuery<Picks>({
 		queryKey: [`events/${eventId}/picks`],
 		queryFn: () => callApi<Picks>(`events/${eventId}/picks`),
-		staleTime: 1000 * 60 * 20,
+		staleTime: Number.POSITIVE_INFINITY,
 	});
 }
 

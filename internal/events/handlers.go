@@ -43,7 +43,7 @@ func HandleGetPicks(eventScraper EventScraper, eventCache cache.EventCacheReposi
 			return err
 		}
 		if userPicks == nil {
-			userPicks = &picks.Picks{EventId: eventId, Winners: []string{}}
+			userPicks = &picks.Picks{UserId: user.Id, EventId: eventId, Winners: []string{}}
 		}
 
 		if err := checkUpdatePicksScore(r.Context(), user, event, userPicks, eventPicks); err != nil {
