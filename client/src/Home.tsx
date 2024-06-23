@@ -7,10 +7,10 @@ import EventDisplay from "./components/EventDisplay";
 import toast from "react-hot-toast";
 import type { Event } from "./types";
 
-const HOME_EVENT_ID = "latest";
-
 function Home() {
-	const { data: event } = useEvent(HOME_EVENT_ID);
+	const eventId =
+		new URLSearchParams(window.location.search).get("id") ?? "latest";
+	const { data: event } = useEvent(eventId);
 	const user = useUser();
 
 	if (!event || user.isLoading) {
@@ -18,7 +18,7 @@ function Home() {
 	}
 
 	return user.data ? (
-		<EventWithPickControl eventId={HOME_EVENT_ID} event={event} />
+		<EventWithPickControl eventId={eventId} event={event} />
 	) : (
 		<div className="h-screen">
 			<EventDisplay
