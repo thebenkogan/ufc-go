@@ -275,8 +275,9 @@ func TestServer(t *testing.T) {
 		}
 	})
 
+	testEventId3 := "test-event-id3"
 	t.Run("should get all picks across multiple events", func(t *testing.T) {
-		testEventId3 := "test-event-id3"
+		clearEvents()
 		testEvent := &model.Event{
 			Id:        testEventId3,
 			StartTime: time.Now().Add(4 * time.Hour).Format(time.RFC3339),
@@ -337,6 +338,52 @@ func TestServer(t *testing.T) {
 		}
 		if gotPicks[1].Picks.EventId != testEventId2 {
 			t.Errorf("expected event ID %s, got %s", testEventId2, gotPicks[1].Picks.EventId)
+		}
+	})
+
+	t.Run("should score picks when getting all events", func(t *testing.T) {
+		clearEvents()
+		testEvent := &model.Event{
+			Id:        testEventId3,
+			StartTime: time.Now().Add(-12 * time.Hour).Format(time.RFC3339),
+			Fights: []model.Fight{
+				{Fighters: []string{"1", "2"}, Winner: "1"},
+				{Fighters: []string{"3", "4"}, Winner: "4"},
+				{Fighters: []string{"5", "6"}, Winner: "5"},
+			},
+		}
+
+		testScraper := testEventScraper{
+			maker: func() *model.Event {
+				return testEvent
+			},
+		}
+
+		srv := server.NewServer(testOAuth{}, testScraper, eventCache, eventPicks)
+		ts := httptest.NewServer(srv)
+		defer ts.Close()
+
+		resp, err := http.Get(fmt.Sprintf("%s/events/picks", ts.URL))
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusOK {
+			t.Errorf("expected status code 200, got %d", resp.StatusCode)
+		}
+
+		var gotPicks []*events.GetAllPicksResponse
+		if err := json.NewDecoder(resp.Body).Decode(&gotPicks); err != nil {
+			t.Fatal(err)
+		}
+
+		if len(gotPicks) != 2 {
+			t.Errorf("expected 2 picks, got %d", len(gotPicks))
+		}
+
+		if gotPicks[0].Picks.Score == nil || *gotPicks[0].Picks.Score != 3 {
+			t.Errorf("expected score 2, got %v", gotPicks[0].Picks.Score)
 		}
 	})
 }

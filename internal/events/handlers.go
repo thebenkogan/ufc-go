@@ -92,7 +92,7 @@ func HandleGetAllPicks(eventScraper EventScraper, eventCache cache.EventCacheRep
 				event, ok := eventMap[up.EventId]
 				mu.Unlock()
 				if !ok {
-					event, err := getEventWithCache(gCtx, eventScraper, eventCache, up.EventId)
+					event, err = getEventWithCache(gCtx, eventScraper, eventCache, up.EventId)
 					if err != nil {
 						return err
 					}
