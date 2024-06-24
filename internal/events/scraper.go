@@ -2,7 +2,8 @@ package events
 
 import (
 	"fmt"
-	"log"
+	"log/slog"
+	"slices"
 	"strings"
 	"time"
 
@@ -12,6 +13,7 @@ import (
 
 type EventScraper interface {
 	ScrapeEvent(id string) (*model.Event, error)
+	ScrapeSchedule() ([]*model.EventInfo, error)
 }
 
 type ESPNEventScraper struct{}
@@ -35,11 +37,11 @@ func (e ESPNEventScraper) ScrapeEvent(id string) (*model.Event, error) {
 	c := colly.NewCollector()
 
 	c.OnRequest(func(r *colly.Request) {
-		log.Println("Visiting", r.URL)
+		slog.Info("Visiting", "url", r.URL)
 	})
 
 	c.OnResponse(func(r *colly.Response) {
-		log.Println("Visited", r.Request.URL)
+		slog.Info("Visited", "url", r.Request.URL)
 	})
 
 	c.OnHTML("div.MMAGamestrip", func(e *colly.HTMLElement) {
@@ -103,4 +105,50 @@ func (e ESPNEventScraper) ScrapeEvent(id string) (*model.Event, error) {
 	}
 
 	return &event, nil
+}
+
+func (_ ESPNEventScraper) scheduleURL() string {
+	return "https://www.espn.com/mma/schedule/_/league/ufc"
+}
+
+func (e ESPNEventScraper) ScrapeSchedule() ([]*model.EventInfo, error) {
+	events := make([]*model.EventInfo, 0)
+
+	c := colly.NewCollector()
+
+	c.OnRequest(func(r *colly.Request) {
+		slog.Info("Visiting", "url", r.URL)
+	})
+
+	c.OnResponse(func(r *colly.Response) {
+		slog.Info("Visited", "url", r.Request.URL)
+	})
+
+	c.OnHTML("tr.Table__TR", func(e *colly.HTMLElement) {
+		date := e.ChildText("span.date__innerCell")
+		name := e.ChildText("td.event__col")
+		link := e.ChildAttr("td.event__col a", "href")
+		if date == "" {
+			return
+		}
+		id := strings.Split(link, "/")[5]
+		loc, _ := time.LoadLocation("Local")
+		layout := "Jan 2"
+		t, err := time.ParseInLocation(layout, date, loc)
+		if err != nil {
+			return
+		}
+		events = append(events, &model.EventInfo{Id: id, Name: name, Date: t})
+	})
+
+	if err := c.Visit(e.scheduleURL()); err != nil {
+		return nil, fmt.Errorf("failed to visit URL: %v", err)
+	}
+	c.Wait()
+
+	slices.SortFunc(events, func(a, b *model.EventInfo) int {
+		return a.Date.Compare(b.Date)
+	})
+
+	return events, nil
 }

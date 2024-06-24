@@ -6,6 +6,7 @@ import { Toaster } from "react-hot-toast";
 import { startLogin, useUser } from "./api";
 import FullscreenText from "./components/FullscreenText";
 import History from "./History";
+import Schedule from "./Schedule";
 
 const queryClient = new QueryClient();
 
@@ -17,6 +18,7 @@ function App() {
 				<Route path="/" element={<Layout />}>
 					<Route index element={<Home />} />
 					<Route path="/history" element={<History />} />
+					<Route path="/schedule" element={<Schedule />} />
 				</Route>
 				<Route path="/auth/google/callback" element={<AuthCallback />} />
 			</Routes>
@@ -37,6 +39,7 @@ function Layout() {
 				<div className="flex flex-row gap-6">
 					<Link to="/">Home</Link>
 					{user && <Link to="/history">History</Link>}
+					<Link to="/schedule">Schedule</Link>
 				</div>
 				{user ? (
 					<p>Hello {user.name}!</p>

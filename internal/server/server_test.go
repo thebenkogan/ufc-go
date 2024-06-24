@@ -56,6 +56,10 @@ func (s testEventScraper) ScrapeEvent(id string) (*model.Event, error) {
 	return s.maker(), nil
 }
 
+func (s testEventScraper) ScrapeSchedule() ([]*model.EventInfo, error) {
+	panic("unimplemented")
+}
+
 func TestServer(t *testing.T) {
 	if err := godotenv.Load("../../.env"); err != nil {
 		t.Fatal(err)

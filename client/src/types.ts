@@ -16,6 +16,12 @@ export type Fight = {
 	winner?: string;
 };
 
+export type EventInfo = {
+	id: string;
+	name: string;
+	date: string;
+};
+
 export type Picks = {
 	winners: string[];
 	score?: number;

@@ -1,2 +1,1 @@
-- view all past picks + event
 - aggregate pick stats

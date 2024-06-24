@@ -2,8 +2,10 @@ package events
 
 import (
 	"fmt"
+	"log/slog"
 	"net/http"
 	"sync"
+	"time"
 
 	"github.com/thebenkogan/ufc/internal/auth"
 	"github.com/thebenkogan/ufc/internal/cache"
@@ -12,6 +14,39 @@ import (
 	"github.com/thebenkogan/ufc/internal/util"
 	"golang.org/x/sync/errgroup"
 )
+
+const SCHEDULE_TTL = time.Hour
+
+func HandleGetSchedule(eventScraper EventScraper, eventCache cache.EventCacheRepository) util.Handler {
+	return func(w http.ResponseWriter, r *http.Request) error {
+		cached, err := eventCache.GetSchedule(r.Context())
+		if err != nil {
+			slog.Warn("failed to get schedule from cache", "error", err)
+		}
+
+		if cached != nil {
+			slog.Info("cache hit")
+			util.Encode(w, http.StatusOK, cached)
+			return nil
+		}
+
+		slog.Info("cache miss, parsing schedule...")
+
+		schedule, err := eventScraper.ScrapeSchedule()
+		if err != nil {
+			return err
+		}
+
+		slog.Info("parsed schedule, storing to cache")
+
+		if err := eventCache.SetSchedule(r.Context(), schedule, SCHEDULE_TTL); err != nil {
+			slog.Warn("failed to cache schedule", "error", err)
+		}
+
+		util.Encode(w, http.StatusOK, schedule)
+		return nil
+	}
+}
 
 func HandleGetEvent(eventScraper EventScraper, eventCache cache.EventCacheRepository) util.Handler {
 	return func(w http.ResponseWriter, r *http.Request) error {

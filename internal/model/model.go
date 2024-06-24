@@ -32,3 +32,9 @@ type Fight struct {
 	Fighters []string `json:"fighters"`
 	Winner   string   `json:"winner,omitempty"`
 }
+
+type EventInfo struct {
+	Id   string    `json:"id"`
+	Name string    `json:"name"`
+	Date time.Time `json:"date"`
+}

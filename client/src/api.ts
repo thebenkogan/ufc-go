@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import type { User, Event, Picks, PicksWithEvent } from "./types";
+import type { User, Event, Picks, PicksWithEvent, EventInfo } from "./types";
 
 const API_URL = "http://localhost:8080/";
 
@@ -46,6 +46,15 @@ export function useEvent(eventId: string) {
 		queryKey: [`events/${eventId}`],
 		queryFn: () => callApi<Event>(`events/${eventId}`),
 		refetchInterval: 1000 * 60 * 5,
+		staleTime: Number.POSITIVE_INFINITY,
+	});
+}
+
+export function useSchedule() {
+	return useQuery<EventInfo[]>({
+		queryKey: ["schedule"],
+		queryFn: () => callApi<EventInfo[]>("schedule"),
+		refetchInterval: 1000 * 60 * 60,
 		staleTime: Number.POSITIVE_INFINITY,
 	});
 }

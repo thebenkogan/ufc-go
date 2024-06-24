@@ -99,3 +99,11 @@ func TestScorePicks(t *testing.T) {
 		})
 	}
 }
+
+func TestScrape(t *testing.T) {
+	eventScraper := ESPNEventScraper{}
+	es, _ := eventScraper.ScrapeSchedule()
+	for _, e := range es {
+		fmt.Println(e)
+	}
+}
