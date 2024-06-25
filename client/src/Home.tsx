@@ -74,7 +74,9 @@ function EventWithPickControl({ event, eventId }: EventWithPickControlProps) {
 		if (localPicks.includes(fighter)) {
 			setLocalPicks(localPicks.filter((pick) => pick !== fighter));
 		} else if (localPicks.includes(opponent)) {
-			toast.error("You can't pick both fighters in a fight");
+			setLocalPicks(
+				[...localPicks, fighter].filter((pick) => pick !== opponent),
+			);
 		} else {
 			setLocalPicks([...localPicks, fighter]);
 		}
