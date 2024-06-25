@@ -6,10 +6,11 @@ import SavePicksBox from "./components/SavePicksBox";
 import EventDisplay from "./components/EventDisplay";
 import toast from "react-hot-toast";
 import type { Event } from "./types";
+import { useSearchParams } from "react-router-dom";
 
 function Home() {
-	const eventId =
-		new URLSearchParams(window.location.search).get("id") ?? "latest";
+	const [searchParams] = useSearchParams();
+	const eventId = searchParams.get("id") ?? "latest";
 	const { data: event } = useEvent(eventId);
 	const user = useUser();
 
@@ -18,7 +19,7 @@ function Home() {
 	}
 
 	return user.data ? (
-		<EventWithPickControl eventId={eventId} event={event} />
+		<EventWithPickControl event={event} />
 	) : (
 		<div className="h-screen">
 			<EventDisplay
@@ -32,22 +33,21 @@ function Home() {
 }
 
 interface EventWithPickControlProps {
-	eventId: string;
 	event: Event;
 }
 
-function EventWithPickControl({ event, eventId }: EventWithPickControlProps) {
-	const picks = usePicks(eventId);
+function EventWithPickControl({ event }: EventWithPickControlProps) {
+	const picks = usePicks(event.id);
 	const eventPicks = picks.data?.winners;
 	const [localPicks, setLocalPicks] = useState<string[]>(eventPicks || []);
 	const [prevServerPicks, setPrevServerPicks] = useState(eventPicks);
 	const queryClient = useQueryClient();
 
 	const picksMutation = useMutation({
-		mutationFn: (picks: string[]) => postPicks(eventId, picks),
+		mutationFn: (picks: string[]) => postPicks(event.id, picks),
 		onSuccess: () => {
 			return queryClient.invalidateQueries({
-				queryKey: [`events/${eventId}/picks`],
+				queryKey: [`events/${event.id}/picks`],
 			});
 		},
 	});
@@ -82,7 +82,6 @@ function EventWithPickControl({ event, eventId }: EventWithPickControlProps) {
 		}
 	};
 
-	console.log(localPicks, eventPicks);
 	const hasPickChanges =
 		localPicks.sort().toString() !== (eventPicks?.sort().toString() ?? "");
 
