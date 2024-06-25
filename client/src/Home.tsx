@@ -39,7 +39,7 @@ interface EventWithPickControlProps {
 function EventWithPickControl({ event, eventId }: EventWithPickControlProps) {
 	const picks = usePicks(eventId);
 	const eventPicks = picks.data?.winners;
-	const [localPicks, setLocalPicks] = useState<string[]>([]);
+	const [localPicks, setLocalPicks] = useState<string[]>(eventPicks || []);
 	const [prevServerPicks, setPrevServerPicks] = useState(eventPicks);
 	const queryClient = useQueryClient();
 
@@ -80,6 +80,7 @@ function EventWithPickControl({ event, eventId }: EventWithPickControlProps) {
 		}
 	};
 
+	console.log(localPicks, eventPicks);
 	const hasPickChanges =
 		localPicks.sort().toString() !== (eventPicks?.sort().toString() ?? "");
 
