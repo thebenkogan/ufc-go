@@ -9,7 +9,9 @@ interface PicksTableProps {
 }
 
 function PicksTable({ picks }: PicksTableProps) {
+	console.log(picks);
 	const gridOptions: GridOptions<PicksWithEvent> = {
+		domLayout: "autoHeight",
 		autoSizeStrategy: { type: "fitCellContents", colIds: ["event.name"] },
 		rowData: picks,
 		columnDefs: [

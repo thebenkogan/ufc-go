@@ -26,7 +26,7 @@ function Home() {
 				key={event.id}
 				event={event}
 				picks={[]}
-				onClickFighter={() => {}}
+				onClickFighter={() => toast.error("Please sign in to save picks")}
 				score={undefined}
 			/>
 		</div>
@@ -47,6 +47,7 @@ function EventWithPickControl({ event }: EventWithPickControlProps) {
 	const picksMutation = useMutation({
 		mutationFn: (picks: string[]) => postPicks(event.id, picks),
 		onSuccess: () => {
+			queryClient.refetchQueries({ queryKey: ["events/picks"] });
 			return queryClient.invalidateQueries({
 				queryKey: [`events/${event.id}/picks`],
 			});
