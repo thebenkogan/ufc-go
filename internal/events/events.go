@@ -15,31 +15,31 @@ import (
 
 const eventLatest string = "latest"
 
-func getEventWithCache(ctx context.Context, eventScraper EventScraper, eventCache cache.EventCacheRepository, id string) (*model.Event, error) {
-	slog.Info(fmt.Sprintf("Getting event, ID: %s", id))
+func getEventWithCache(ctx context.Context, log *slog.Logger, eventScraper EventScraper, eventCache cache.EventCacheRepository, id string) (*model.Event, error) {
+	log.Info(fmt.Sprintf("Getting event, ID: %s", id))
 
 	cached, err := eventCache.GetEvent(ctx, id)
 	if err != nil {
-		slog.Warn("failed to get event from cache", "error", err)
+		log.Warn("failed to get event from cache", "error", err)
 	}
 
 	if cached != nil {
-		slog.Info("cache hit")
+		log.Info("cache hit")
 		return cached, nil
 	}
 
-	slog.Info("cache miss, parsing event...")
+	log.Info("cache miss, scraping event...")
 
 	event, err := eventScraper.ScrapeEvent(id)
 	if err != nil {
 		return nil, err
 	}
 
-	slog.Info("parsed event, storing to cache")
+	log.Info("parsed event, storing to cache")
 
 	ttl := freshTime(event)
 	if err := eventCache.SetEvent(ctx, event.Id, event, ttl); err != nil {
-		slog.Warn("failed to cache event", "error", err)
+		log.Warn("failed to cache event", "error", err)
 	}
 	if id == eventLatest {
 		if event.IsFinished() {
@@ -47,7 +47,7 @@ func getEventWithCache(ctx context.Context, eventScraper EventScraper, eventCach
 			ttl = time.Hour
 		}
 		if err := eventCache.SetEvent(ctx, eventLatest, event, ttl); err != nil {
-			slog.Warn("failed to cache latest event", "error", err)
+			log.Warn("failed to cache latest event", "error", err)
 		}
 
 	}

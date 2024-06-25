@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net/http"
 
 	"github.com/coreos/go-oidc/v3/oidc"
@@ -36,7 +37,7 @@ func NewGoogleAuth(ctx context.Context, clientId, clientSecret string) (*GoogleA
 }
 
 func (a *GoogleAuth) HandleBeginAuth() util.Handler {
-	return func(w http.ResponseWriter, r *http.Request) error {
+	return func(_ *slog.Logger, w http.ResponseWriter, r *http.Request) error {
 		state, err := randString(16)
 		if err != nil {
 			return err
@@ -53,7 +54,7 @@ func (a *GoogleAuth) HandleBeginAuth() util.Handler {
 }
 
 func (a *GoogleAuth) HandleAuthCallback() util.Handler {
-	return func(w http.ResponseWriter, r *http.Request) error {
+	return func(_ *slog.Logger, w http.ResponseWriter, r *http.Request) error {
 		state, err := r.Cookie("state")
 		if err != nil {
 			http.Error(w, "state not found", http.StatusBadRequest)
@@ -98,7 +99,7 @@ func (a *GoogleAuth) HandleAuthCallback() util.Handler {
 }
 
 func (a *GoogleAuth) Middleware(h util.Handler) util.Handler {
-	return func(w http.ResponseWriter, r *http.Request) error {
+	return func(log *slog.Logger, w http.ResponseWriter, r *http.Request) error {
 		idTokenCookie, err := r.Cookie("id_token")
 		if err == http.ErrNoCookie {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
@@ -119,6 +120,6 @@ func (a *GoogleAuth) Middleware(h util.Handler) util.Handler {
 		ctx := context.WithValue(r.Context(), "user", user)
 		rWithUser := r.WithContext(ctx)
 
-		return h(w, rWithUser)
+		return h(log, w, rWithUser)
 	}
 }

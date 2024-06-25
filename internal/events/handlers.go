@@ -18,29 +18,29 @@ import (
 const SCHEDULE_TTL = time.Hour
 
 func HandleGetSchedule(eventScraper EventScraper, eventCache cache.EventCacheRepository) util.Handler {
-	return func(w http.ResponseWriter, r *http.Request) error {
+	return func(log *slog.Logger, w http.ResponseWriter, r *http.Request) error {
 		cached, err := eventCache.GetSchedule(r.Context())
 		if err != nil {
-			slog.Warn("failed to get schedule from cache", "error", err)
+			log.Warn("failed to get schedule from cache", "error", err)
 		}
 
 		if cached != nil {
-			slog.Info("cache hit")
+			log.Info("cache hit")
 			util.Encode(w, http.StatusOK, cached)
 			return nil
 		}
 
-		slog.Info("cache miss, parsing schedule...")
+		log.Info("cache miss, scraping schedule...")
 
 		schedule, err := eventScraper.ScrapeSchedule()
 		if err != nil {
 			return err
 		}
 
-		slog.Info("parsed schedule, storing to cache")
+		log.Info("parsed schedule, storing to cache")
 
 		if err := eventCache.SetSchedule(r.Context(), schedule, SCHEDULE_TTL); err != nil {
-			slog.Warn("failed to cache schedule", "error", err)
+			log.Warn("failed to cache schedule", "error", err)
 		}
 
 		util.Encode(w, http.StatusOK, schedule)
@@ -49,9 +49,9 @@ func HandleGetSchedule(eventScraper EventScraper, eventCache cache.EventCacheRep
 }
 
 func HandleGetEvent(eventScraper EventScraper, eventCache cache.EventCacheRepository) util.Handler {
-	return func(w http.ResponseWriter, r *http.Request) error {
+	return func(log *slog.Logger, w http.ResponseWriter, r *http.Request) error {
 		id := r.PathValue("id")
-		event, err := getEventWithCache(r.Context(), eventScraper, eventCache, id)
+		event, err := getEventWithCache(r.Context(), log, eventScraper, eventCache, id)
 		if err != nil {
 			return err
 		}
@@ -61,14 +61,14 @@ func HandleGetEvent(eventScraper EventScraper, eventCache cache.EventCacheReposi
 }
 
 func HandleGetPicks(eventScraper EventScraper, eventCache cache.EventCacheRepository, eventPicks picks.EventPicksRepository) util.Handler {
-	return func(w http.ResponseWriter, r *http.Request) error {
+	return func(log *slog.Logger, w http.ResponseWriter, r *http.Request) error {
 		user, ok := r.Context().Value("user").(auth.User)
 		if !ok {
 			return fmt.Errorf("no user in context")
 		}
 
 		eventId := r.PathValue("id")
-		event, err := getEventWithCache(r.Context(), eventScraper, eventCache, eventId)
+		event, err := getEventWithCache(r.Context(), log, eventScraper, eventCache, eventId)
 		if err != nil {
 			return err
 		}
@@ -96,7 +96,7 @@ type GetAllPicksResponse struct {
 }
 
 func HandleGetAllPicks(eventScraper EventScraper, eventCache cache.EventCacheRepository, eventPicks picks.EventPicksRepository) util.Handler {
-	return func(w http.ResponseWriter, r *http.Request) error {
+	return func(log *slog.Logger, w http.ResponseWriter, r *http.Request) error {
 		user, ok := r.Context().Value("user").(auth.User)
 		if !ok {
 			return fmt.Errorf("no user in context")
@@ -132,7 +132,7 @@ func HandleGetAllPicks(eventScraper EventScraper, eventCache cache.EventCacheRep
 				event, ok := eventMap[up.EventId]
 				mu.Unlock()
 				if !ok {
-					event, err = getEventWithCache(gCtx, eventScraper, eventCache, up.EventId)
+					event, err = getEventWithCache(gCtx, log, eventScraper, eventCache, up.EventId)
 					if err != nil {
 						return err
 					}
@@ -163,13 +163,13 @@ type PostEventPicksRequest struct {
 }
 
 func HandlePostPicks(eventScraper EventScraper, eventCache cache.EventCacheRepository, eventPicks picks.EventPicksRepository) util.Handler {
-	return func(w http.ResponseWriter, r *http.Request) error {
+	return func(log *slog.Logger, w http.ResponseWriter, r *http.Request) error {
 		var picks PostEventPicksRequest
 		util.Decode(r, &picks)
 		pickedFighters := util.Distinct(picks.Winners)
 
 		id := r.PathValue("id")
-		event, err := getEventWithCache(r.Context(), eventScraper, eventCache, id)
+		event, err := getEventWithCache(r.Context(), log, eventScraper, eventCache, id)
 		if err != nil {
 			return err
 		}

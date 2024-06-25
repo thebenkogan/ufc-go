@@ -2,7 +2,6 @@ package events
 
 import (
 	"fmt"
-	"log/slog"
 	"slices"
 	"strings"
 	"time"
@@ -35,14 +34,6 @@ func (e ESPNEventScraper) ScrapeEvent(id string) (*model.Event, error) {
 	var earliestTime string
 
 	c := colly.NewCollector()
-
-	c.OnRequest(func(r *colly.Request) {
-		slog.Info("Visiting", "url", r.URL)
-	})
-
-	c.OnResponse(func(r *colly.Response) {
-		slog.Info("Visited", "url", r.Request.URL)
-	})
 
 	c.OnHTML("div.MMAGamestrip", func(e *colly.HTMLElement) {
 		fighters := make([]string, 0)
@@ -115,14 +106,6 @@ func (e ESPNEventScraper) ScrapeSchedule() ([]*model.EventInfo, error) {
 	events := make([]*model.EventInfo, 0)
 
 	c := colly.NewCollector()
-
-	c.OnRequest(func(r *colly.Request) {
-		slog.Info("Visiting", "url", r.URL)
-	})
-
-	c.OnResponse(func(r *colly.Response) {
-		slog.Info("Visited", "url", r.Request.URL)
-	})
 
 	c.OnHTML("tr.Table__TR", func(e *colly.HTMLElement) {
 		date := e.ChildText("span.date__innerCell")

@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"io"
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -41,7 +42,7 @@ func setCookie(w http.ResponseWriter, r *http.Request, name, value string) {
 }
 
 func HandleMe(auth OIDCAuth) util.Handler {
-	handler := func(w http.ResponseWriter, r *http.Request) error {
+	handler := func(_ *slog.Logger, w http.ResponseWriter, r *http.Request) error {
 		user := r.Context().Value("user").(User)
 		util.Encode(w, http.StatusOK, user)
 		return nil

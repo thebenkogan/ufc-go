@@ -6,7 +6,7 @@ import (
 	"net/http"
 )
 
-type Handler func(w http.ResponseWriter, r *http.Request) error
+type Handler func(log *slog.Logger, w http.ResponseWriter, r *http.Request) error
 
 func Encode[T any](w http.ResponseWriter, status int, v T) {
 	w.Header().Set("Content-Type", "application/json")

@@ -3,7 +3,9 @@ package server
 import (
 	"log/slog"
 	"net/http"
+	"os"
 
+	"github.com/google/uuid"
 	"github.com/rs/cors"
 	"github.com/thebenkogan/ufc/internal/auth"
 	"github.com/thebenkogan/ufc/internal/cache"
@@ -24,9 +26,13 @@ func NewServer(oauth auth.OIDCAuth, eventScraper events.EventScraper, eventCache
 
 // wrapper for http.HandlerFuncs that return errors
 func handler(h util.Handler) http.HandlerFunc {
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+	requestId := uuid.New().String()
+	logger = logger.With(slog.String("request_id", requestId))
 	return func(w http.ResponseWriter, r *http.Request) {
-		if err := h(w, r); err != nil {
-			slog.Error(err.Error())
+		logger.Info("request", "method", r.Method, "path", r.URL.Path)
+		if err := h(logger, w, r); err != nil {
+			logger.Error(err.Error())
 			http.Error(w, "Internal server error", http.StatusInternalServerError)
 		}
 	}

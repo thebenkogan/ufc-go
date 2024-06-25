@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -28,23 +29,23 @@ import (
 type testOAuth struct{}
 
 func (a testOAuth) HandleBeginAuth() util.Handler {
-	return func(w http.ResponseWriter, r *http.Request) error {
+	return func(_ *slog.Logger, w http.ResponseWriter, r *http.Request) error {
 		panic("not implemented")
 	}
 }
 
 func (a testOAuth) HandleAuthCallback() util.Handler {
-	return func(w http.ResponseWriter, r *http.Request) error {
+	return func(_ *slog.Logger, w http.ResponseWriter, r *http.Request) error {
 		panic("not implemented")
 	}
 }
 
 func (a testOAuth) Middleware(h util.Handler) util.Handler {
-	return func(w http.ResponseWriter, r *http.Request) error {
+	return func(log *slog.Logger, w http.ResponseWriter, r *http.Request) error {
 		user := auth.User{Id: "user", Email: "user@gmail.com", Name: "user"}
 		ctx := context.WithValue(r.Context(), "user", user)
 		rWithUser := r.WithContext(ctx)
-		return h(w, rWithUser)
+		return h(log, w, rWithUser)
 	}
 }
 

@@ -14,8 +14,6 @@ function Home() {
 	const { data: event } = useEvent(eventId);
 	const user = useUser();
 
-	console.log(event);
-
 	if (!event || user.isLoading) {
 		return <FullscreenText text="Loading..." />;
 	}
