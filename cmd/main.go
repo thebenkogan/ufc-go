@@ -38,7 +38,10 @@ func run(ctx context.Context) error {
 		return fmt.Errorf("error loading .env file: %w", err)
 	}
 
-	auth, err := auth.NewGoogleAuth(ctx, os.Getenv("GOOGLE_OAUTH2_CLIENT_ID"), os.Getenv("GOOGLE_OAUTH2_CLIENT_SECRET"))
+	host, port := os.Getenv("HOST"), os.Getenv("PORT")
+	address := fmt.Sprintf("%s:%s", host, port)
+
+	auth, err := auth.NewGoogleAuth(ctx, os.Getenv("GOOGLE_OAUTH2_CLIENT_ID"), os.Getenv("GOOGLE_OAUTH2_CLIENT_SECRET"), address)
 	if err != nil {
 		return fmt.Errorf("error creating auth: %w", err)
 	}
@@ -74,7 +77,7 @@ func run(ctx context.Context) error {
 
 	srv := server.NewServer(auth, events.NewESPNEventScraper(), eventCache, eventPicks)
 	httpServer := &http.Server{
-		Addr:    net.JoinHostPort("localhost", "8080"),
+		Addr:    address,
 		Handler: srv,
 	}
 	go func() {

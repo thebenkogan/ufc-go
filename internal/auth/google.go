@@ -17,7 +17,7 @@ type GoogleAuth struct {
 	tokenVerifier *oidc.IDTokenVerifier
 }
 
-func NewGoogleAuth(ctx context.Context, clientId, clientSecret string) (*GoogleAuth, error) {
+func NewGoogleAuth(ctx context.Context, clientId, clientSecret, address string) (*GoogleAuth, error) {
 	provider, err := oidc.NewProvider(ctx, "https://accounts.google.com")
 	if err != nil {
 		return nil, err
@@ -30,7 +30,7 @@ func NewGoogleAuth(ctx context.Context, clientId, clientSecret string) (*GoogleA
 		ClientID:     clientId,
 		ClientSecret: clientSecret,
 		Endpoint:     provider.Endpoint(),
-		RedirectURL:  "http://localhost:5173/auth/google/callback",
+		RedirectURL:  fmt.Sprintf("http://%s/auth/google/callback", address),
 		Scopes:       []string{oidc.ScopeOpenID, "profile", "email"},
 	}
 	return &GoogleAuth{provider, config, verifier}, nil
@@ -94,6 +94,8 @@ func (a *GoogleAuth) HandleAuthCallback() util.Handler {
 		}
 
 		setCookie(w, r, "id_token", rawIDToken)
+		_, _ = w.Write([]byte("Hello, " + user.Name))
+
 		return nil
 	}
 }
