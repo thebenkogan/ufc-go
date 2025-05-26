@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import type { User, Event, Picks, PicksWithEvent, EventInfo } from "./types";
 
-const API_URL = "http://localhost:5173/";
+const API_URL = "http://localhost:8000/";
 
 async function callApi<T>(path: string, opts?: RequestInit): Promise<T> {
 	const response = await fetch(API_URL + path, {

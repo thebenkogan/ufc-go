@@ -1,20 +1,20 @@
 package auth
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/base64"
 	"io"
-	"log/slog"
 	"net/http"
 	"time"
 
-	"github.com/thebenkogan/ufc/internal/util"
+	"github.com/thebenkogan/ufc/internal/util/api_util"
 )
 
 type OIDCAuth interface {
-	HandleBeginAuth() util.Handler
-	HandleAuthCallback() util.Handler
-	Middleware(h util.Handler) util.Handler
+	HandleBeginAuth() api_util.Handler
+	HandleAuthCallback() api_util.Handler
+	Middleware(h api_util.Handler) api_util.Handler
 }
 
 type User struct {
@@ -41,10 +41,10 @@ func setCookie(w http.ResponseWriter, r *http.Request, name, value string) {
 	http.SetCookie(w, c)
 }
 
-func HandleMe(auth OIDCAuth) util.Handler {
-	handler := func(_ *slog.Logger, w http.ResponseWriter, r *http.Request) error {
-		user := r.Context().Value("user").(User)
-		util.Encode(w, http.StatusOK, user)
+func HandleMe(auth OIDCAuth) api_util.Handler {
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+		user := ctx.Value("user").(User)
+		api_util.Encode(w, http.StatusOK, user)
 		return nil
 	}
 	return auth.Middleware(handler)

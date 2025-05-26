@@ -3,7 +3,6 @@ package events
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"slices"
 	"time"
 
@@ -11,35 +10,36 @@ import (
 	"github.com/thebenkogan/ufc/internal/cache"
 	"github.com/thebenkogan/ufc/internal/model"
 	"github.com/thebenkogan/ufc/internal/picks"
+	"github.com/thebenkogan/ufc/internal/util/logs"
 )
 
 const eventLatest string = "latest"
 
-func getEventWithCache(ctx context.Context, log *slog.Logger, eventScraper EventScraper, eventCache cache.EventCacheRepository, id string) (*model.Event, error) {
-	log.Info(fmt.Sprintf("Getting event, ID: %s", id))
+func getEventWithCache(ctx context.Context, eventScraper EventScraper, eventCache cache.EventCacheRepository, id string) (*model.Event, error) {
+	logs.Logger(ctx).Info(fmt.Sprintf("Getting event, ID: %s", id))
 
 	cached, err := eventCache.GetEvent(ctx, id)
 	if err != nil {
-		log.Warn("failed to get event from cache", "error", err)
+		logs.Logger(ctx).Warn("failed to get event from cache", "error", err)
 	}
 
 	if cached != nil {
-		log.Info("cache hit")
+		logs.Logger(ctx).Info("cache hit")
 		return cached, nil
 	}
 
-	log.Info("cache miss, scraping event...")
+	logs.Logger(ctx).Info("cache miss, scraping event...")
 
 	event, err := eventScraper.ScrapeEvent(id)
 	if err != nil {
 		return nil, err
 	}
 
-	log.Info("parsed event, storing to cache")
+	logs.Logger(ctx).Info("parsed event, storing to cache")
 
 	ttl := freshTime(event)
 	if err := eventCache.SetEvent(ctx, event.Id, event, ttl); err != nil {
-		log.Warn("failed to cache event", "error", err)
+		logs.Logger(ctx).Warn("failed to cache event", "error", err)
 	}
 	if id == eventLatest {
 		if event.IsFinished() {
@@ -47,7 +47,7 @@ func getEventWithCache(ctx context.Context, log *slog.Logger, eventScraper Event
 			ttl = time.Hour
 		}
 		if err := eventCache.SetEvent(ctx, eventLatest, event, ttl); err != nil {
-			log.Warn("failed to cache latest event", "error", err)
+			logs.Logger(ctx).Warn("failed to cache latest event", "error", err)
 		}
 
 	}
@@ -76,7 +76,6 @@ func freshTime(event *model.Event) time.Duration {
 
 	startTime, err := time.Parse(time.RFC3339, event.StartTime)
 	if err != nil {
-		slog.Error(fmt.Sprintf("failed to parse start time: %v", err))
 		return 0
 	}
 	now := time.Now()

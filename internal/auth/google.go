@@ -3,11 +3,10 @@ package auth
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"net/http"
 
 	"github.com/coreos/go-oidc/v3/oidc"
-	"github.com/thebenkogan/ufc/internal/util"
+	"github.com/thebenkogan/ufc/internal/util/api_util"
 	"golang.org/x/oauth2"
 )
 
@@ -36,8 +35,8 @@ func NewGoogleAuth(ctx context.Context, clientId, clientSecret, address string) 
 	return &GoogleAuth{provider, config, verifier}, nil
 }
 
-func (a *GoogleAuth) HandleBeginAuth() util.Handler {
-	return func(_ *slog.Logger, w http.ResponseWriter, r *http.Request) error {
+func (a *GoogleAuth) HandleBeginAuth() api_util.Handler {
+	return func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
 		state, err := randString(16)
 		if err != nil {
 			return err
@@ -53,8 +52,8 @@ func (a *GoogleAuth) HandleBeginAuth() util.Handler {
 	}
 }
 
-func (a *GoogleAuth) HandleAuthCallback() util.Handler {
-	return func(_ *slog.Logger, w http.ResponseWriter, r *http.Request) error {
+func (a *GoogleAuth) HandleAuthCallback() api_util.Handler {
+	return func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
 		state, err := r.Cookie("state")
 		if err != nil {
 			http.Error(w, "state not found", http.StatusBadRequest)
@@ -65,7 +64,7 @@ func (a *GoogleAuth) HandleAuthCallback() util.Handler {
 			return nil
 		}
 
-		oauth2Token, err := a.config.Exchange(r.Context(), r.URL.Query().Get("code"))
+		oauth2Token, err := a.config.Exchange(ctx, r.URL.Query().Get("code"))
 		if err != nil {
 			return fmt.Errorf("failed to exchange token: %w", err)
 		}
@@ -73,7 +72,7 @@ func (a *GoogleAuth) HandleAuthCallback() util.Handler {
 		if !ok {
 			return fmt.Errorf("no id_token field in oauth2 token")
 		}
-		idToken, err := a.tokenVerifier.Verify(r.Context(), rawIDToken)
+		idToken, err := a.tokenVerifier.Verify(ctx, rawIDToken)
 		if err != nil {
 			return fmt.Errorf("failed to verify ID Token: %w", err)
 		}
@@ -100,15 +99,15 @@ func (a *GoogleAuth) HandleAuthCallback() util.Handler {
 	}
 }
 
-func (a *GoogleAuth) Middleware(h util.Handler) util.Handler {
-	return func(log *slog.Logger, w http.ResponseWriter, r *http.Request) error {
+func (a *GoogleAuth) Middleware(h api_util.Handler) api_util.Handler {
+	return func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
 		idTokenCookie, err := r.Cookie("id_token")
 		if err == http.ErrNoCookie {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return nil
 		}
 
-		idToken, err := a.tokenVerifier.Verify(r.Context(), idTokenCookie.Value)
+		idToken, err := a.tokenVerifier.Verify(ctx, idTokenCookie.Value)
 		if err != nil {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return nil
@@ -119,9 +118,9 @@ func (a *GoogleAuth) Middleware(h util.Handler) util.Handler {
 			return fmt.Errorf("failed to get claims: %w", err)
 		}
 
-		ctx := context.WithValue(r.Context(), "user", user)
+		ctx = context.WithValue(ctx, "user", user)
 		rWithUser := r.WithContext(ctx)
 
-		return h(log, w, rWithUser)
+		return h(ctx, w, rWithUser)
 	}
 }

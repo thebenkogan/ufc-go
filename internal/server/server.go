@@ -1,38 +1,33 @@
 package server
 
 import (
-	"log/slog"
 	"net/http"
-	"os"
 
-	"github.com/google/uuid"
 	"github.com/rs/cors"
 	"github.com/thebenkogan/ufc/internal/auth"
 	"github.com/thebenkogan/ufc/internal/cache"
 	"github.com/thebenkogan/ufc/internal/events"
 	"github.com/thebenkogan/ufc/internal/picks"
-	"github.com/thebenkogan/ufc/internal/util"
+	"github.com/thebenkogan/ufc/internal/util/api_util"
+	"github.com/thebenkogan/ufc/internal/util/logs"
 )
 
 func NewServer(oauth auth.OIDCAuth, eventScraper events.EventScraper, eventCache cache.EventCacheRepository, eventPicks picks.EventPicksRepository) http.Handler {
 	mux := http.NewServeMux()
 	addRoutes(mux, oauth, eventScraper, eventCache, eventPicks)
 	handler := cors.New(cors.Options{
-		AllowedOrigins:   []string{"http://localhost:5174"},
+		AllowedOrigins:   []string{"http://localhost:5173"},
 		AllowCredentials: true,
 	}).Handler(mux)
 	return handler
 }
 
 // wrapper for http.HandlerFuncs that return errors
-func handler(h util.Handler) http.HandlerFunc {
+func handler(h api_util.Handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
-		requestId := uuid.New().String()
-		logger = logger.With(slog.String("request_id", requestId))
-		logger.Info("request", "method", r.Method, "path", r.URL.Path)
-		if err := h(logger, w, r); err != nil {
-			logger.Error(err.Error())
+		ctx := logs.WithRequestLogger(r)
+		if err := h(ctx, w, r); err != nil {
+			logs.Logger(ctx).Error(err.Error())
 			http.Error(w, "Internal server error", http.StatusInternalServerError)
 		}
 	}

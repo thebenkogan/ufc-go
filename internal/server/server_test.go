@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log/slog"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -23,29 +22,29 @@ import (
 	"github.com/thebenkogan/ufc/internal/model"
 	"github.com/thebenkogan/ufc/internal/picks"
 	"github.com/thebenkogan/ufc/internal/server"
-	"github.com/thebenkogan/ufc/internal/util"
+	"github.com/thebenkogan/ufc/internal/util/api_util"
 )
 
 type testOAuth struct{}
 
-func (a testOAuth) HandleBeginAuth() util.Handler {
-	return func(_ *slog.Logger, w http.ResponseWriter, r *http.Request) error {
+func (a testOAuth) HandleBeginAuth() api_util.Handler {
+	return func(_ context.Context, w http.ResponseWriter, r *http.Request) error {
 		panic("not implemented")
 	}
 }
 
-func (a testOAuth) HandleAuthCallback() util.Handler {
-	return func(_ *slog.Logger, w http.ResponseWriter, r *http.Request) error {
+func (a testOAuth) HandleAuthCallback() api_util.Handler {
+	return func(_ context.Context, w http.ResponseWriter, r *http.Request) error {
 		panic("not implemented")
 	}
 }
 
-func (a testOAuth) Middleware(h util.Handler) util.Handler {
-	return func(log *slog.Logger, w http.ResponseWriter, r *http.Request) error {
+func (a testOAuth) Middleware(h api_util.Handler) api_util.Handler {
+	return func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
 		user := auth.User{Id: "user", Email: "user@gmail.com", Name: "user"}
-		ctx := context.WithValue(r.Context(), "user", user)
+		ctx = context.WithValue(ctx, "user", user)
 		rWithUser := r.WithContext(ctx)
-		return h(log, w, rWithUser)
+		return h(ctx, w, rWithUser)
 	}
 }
 

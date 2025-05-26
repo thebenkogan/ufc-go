@@ -1,79 +1,81 @@
 package events
 
 import (
+	"context"
 	"fmt"
-	"log/slog"
 	"net/http"
 	"sync"
 	"time"
 
+	"github.com/samber/lo"
 	"github.com/thebenkogan/ufc/internal/auth"
 	"github.com/thebenkogan/ufc/internal/cache"
 	"github.com/thebenkogan/ufc/internal/model"
 	"github.com/thebenkogan/ufc/internal/picks"
-	"github.com/thebenkogan/ufc/internal/util"
+	"github.com/thebenkogan/ufc/internal/util/api_util"
+	"github.com/thebenkogan/ufc/internal/util/logs"
 	"golang.org/x/sync/errgroup"
 )
 
 const SCHEDULE_TTL = time.Hour
 
-func HandleGetSchedule(eventScraper EventScraper, eventCache cache.EventCacheRepository) util.Handler {
-	return func(log *slog.Logger, w http.ResponseWriter, r *http.Request) error {
-		cached, err := eventCache.GetSchedule(r.Context())
+func HandleGetSchedule(eventScraper EventScraper, eventCache cache.EventCacheRepository) api_util.Handler {
+	return func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+		cached, err := eventCache.GetSchedule(ctx)
 		if err != nil {
-			log.Warn("failed to get schedule from cache", "error", err)
+			logs.Logger(ctx).Warn("failed to get schedule from cache", "error", err)
 		}
 
 		if cached != nil {
-			log.Info("cache hit")
-			util.Encode(w, http.StatusOK, cached)
+			logs.Logger(ctx).Info("cache hit")
+			api_util.Encode(w, http.StatusOK, cached)
 			return nil
 		}
 
-		log.Info("cache miss, scraping schedule...")
+		logs.Logger(ctx).Info("cache miss, scraping schedule...")
 
 		schedule, err := eventScraper.ScrapeSchedule()
 		if err != nil {
 			return err
 		}
 
-		log.Info("parsed schedule, storing to cache")
+		logs.Logger(ctx).Info("parsed schedule, storing to cache")
 
-		if err := eventCache.SetSchedule(r.Context(), schedule, SCHEDULE_TTL); err != nil {
-			log.Warn("failed to cache schedule", "error", err)
+		if err := eventCache.SetSchedule(ctx, schedule, SCHEDULE_TTL); err != nil {
+			logs.Logger(ctx).Warn("failed to cache schedule", "error", err)
 		}
 
-		util.Encode(w, http.StatusOK, schedule)
+		api_util.Encode(w, http.StatusOK, schedule)
 		return nil
 	}
 }
 
-func HandleGetEvent(eventScraper EventScraper, eventCache cache.EventCacheRepository) util.Handler {
-	return func(log *slog.Logger, w http.ResponseWriter, r *http.Request) error {
+func HandleGetEvent(eventScraper EventScraper, eventCache cache.EventCacheRepository) api_util.Handler {
+	return func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
 		id := r.PathValue("id")
-		event, err := getEventWithCache(r.Context(), log, eventScraper, eventCache, id)
+		event, err := getEventWithCache(ctx, eventScraper, eventCache, id)
 		if err != nil {
 			return err
 		}
-		util.Encode(w, http.StatusOK, event)
+		api_util.Encode(w, http.StatusOK, event)
 		return nil
 	}
 }
 
-func HandleGetPicks(eventScraper EventScraper, eventCache cache.EventCacheRepository, eventPicks picks.EventPicksRepository) util.Handler {
-	return func(log *slog.Logger, w http.ResponseWriter, r *http.Request) error {
-		user, ok := r.Context().Value("user").(auth.User)
+func HandleGetPicks(eventScraper EventScraper, eventCache cache.EventCacheRepository, eventPicks picks.EventPicksRepository) api_util.Handler {
+	return func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+		user, ok := ctx.Value("user").(auth.User)
 		if !ok {
 			return fmt.Errorf("no user in context")
 		}
 
 		eventId := r.PathValue("id")
-		event, err := getEventWithCache(r.Context(), log, eventScraper, eventCache, eventId)
+		event, err := getEventWithCache(ctx, eventScraper, eventCache, eventId)
 		if err != nil {
 			return err
 		}
 
-		userPicks, err := eventPicks.GetPicks(r.Context(), user, event.Id)
+		userPicks, err := eventPicks.GetPicks(ctx, user, event.Id)
 		if err != nil {
 			return err
 		}
@@ -81,11 +83,11 @@ func HandleGetPicks(eventScraper EventScraper, eventCache cache.EventCacheReposi
 			userPicks = &picks.Picks{UserId: user.Id, EventId: eventId, Winners: []string{}}
 		}
 
-		if err := checkUpdatePicksScore(r.Context(), user, event, userPicks, eventPicks); err != nil {
+		if err := checkUpdatePicksScore(ctx, user, event, userPicks, eventPicks); err != nil {
 			return err
 		}
 
-		util.Encode(w, http.StatusOK, userPicks)
+		api_util.Encode(w, http.StatusOK, userPicks)
 		return nil
 	}
 }
@@ -95,20 +97,20 @@ type GetAllPicksResponse struct {
 	Event *model.Event `json:"event"`
 }
 
-func HandleGetAllPicks(eventScraper EventScraper, eventCache cache.EventCacheRepository, eventPicks picks.EventPicksRepository) util.Handler {
-	return func(log *slog.Logger, w http.ResponseWriter, r *http.Request) error {
-		user, ok := r.Context().Value("user").(auth.User)
+func HandleGetAllPicks(eventScraper EventScraper, eventCache cache.EventCacheRepository, eventPicks picks.EventPicksRepository) api_util.Handler {
+	return func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+		user, ok := ctx.Value("user").(auth.User)
 		if !ok {
 			return fmt.Errorf("no user in context")
 		}
 
-		userPicks, err := eventPicks.GetAllPicks(r.Context(), user)
+		userPicks, err := eventPicks.GetAllPicks(ctx, user)
 		if err != nil {
 			return fmt.Errorf("error getting all picks: %w", err)
 		}
 
 		if len(userPicks) == 0 {
-			util.Encode(w, http.StatusOK, []GetAllPicksResponse{})
+			api_util.Encode(w, http.StatusOK, []GetAllPicksResponse{})
 			return nil
 		}
 
@@ -117,12 +119,12 @@ func HandleGetAllPicks(eventScraper EventScraper, eventCache cache.EventCacheRep
 			eventIds = append(eventIds, pick.EventId)
 		}
 
-		eventMap, err := eventCache.GetEvents(r.Context(), eventIds)
+		eventMap, err := eventCache.GetEvents(ctx, eventIds)
 		if err != nil {
 			return fmt.Errorf("error getting events from IDs: %w", err)
 		}
 
-		group, gCtx := errgroup.WithContext(r.Context())
+		group, gCtx := errgroup.WithContext(ctx)
 		group.SetLimit(5)
 		var mu sync.Mutex
 		for _, up := range userPicks {
@@ -132,7 +134,7 @@ func HandleGetAllPicks(eventScraper EventScraper, eventCache cache.EventCacheRep
 				event, ok := eventMap[up.EventId]
 				mu.Unlock()
 				if !ok {
-					event, err = getEventWithCache(gCtx, log, eventScraper, eventCache, up.EventId)
+					event, err = getEventWithCache(gCtx, eventScraper, eventCache, up.EventId)
 					if err != nil {
 						return err
 					}
@@ -153,7 +155,7 @@ func HandleGetAllPicks(eventScraper EventScraper, eventCache cache.EventCacheRep
 			res = append(res, &GetAllPicksResponse{Picks: up, Event: eventMap[up.EventId]})
 		}
 
-		util.Encode(w, http.StatusOK, res)
+		api_util.Encode(w, http.StatusOK, res)
 		return nil
 	}
 }
@@ -162,14 +164,15 @@ type PostEventPicksRequest struct {
 	Winners []string `json:"winners"`
 }
 
-func HandlePostPicks(eventScraper EventScraper, eventCache cache.EventCacheRepository, eventPicks picks.EventPicksRepository) util.Handler {
-	return func(log *slog.Logger, w http.ResponseWriter, r *http.Request) error {
+func HandlePostPicks(eventScraper EventScraper, eventCache cache.EventCacheRepository, eventPicks picks.EventPicksRepository) api_util.Handler {
+	return func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
 		var picks PostEventPicksRequest
-		util.Decode(r, &picks)
-		pickedFighters := util.Distinct(picks.Winners)
+		api_util.Decode(r, &picks)
+
+		pickedFighters := lo.Uniq(picks.Winners)
 
 		id := r.PathValue("id")
-		event, err := getEventWithCache(r.Context(), log, eventScraper, eventCache, id)
+		event, err := getEventWithCache(ctx, eventScraper, eventCache, id)
 		if err != nil {
 			return err
 		}
@@ -184,12 +187,12 @@ func HandlePostPicks(eventScraper EventScraper, eventCache cache.EventCacheRepos
 			return nil
 		}
 
-		user, ok := r.Context().Value("user").(auth.User)
+		user, ok := ctx.Value("user").(auth.User)
 		if !ok {
 			return fmt.Errorf("no user in context")
 		}
 
-		if err := eventPicks.SavePicks(r.Context(), user, event.Id, pickedFighters); err != nil {
+		if err := eventPicks.SavePicks(ctx, user, event.Id, pickedFighters); err != nil {
 			return fmt.Errorf("error saving picks: %w", err)
 		}
 
