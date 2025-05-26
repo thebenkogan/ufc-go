@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/samber/lo"
@@ -166,6 +167,20 @@ func HandlePostPicks(eventScraper EventScraper, eventCache cache.EventCacheRepos
 			return fmt.Errorf("error saving picks: %w", err)
 		}
 
+		return nil
+	}
+}
+
+func HandleScoreJob(eventScraper EventScraper, eventCache cache.EventCacheRepository) api_util.Handler {
+	return func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+		key := r.Header.Get("api-key")
+		cronjobKey := os.Getenv("CRONJOB_API_KEY")
+		if key != cronjobKey {
+			api_util.Encode(w, http.StatusForbidden, http.StatusText(http.StatusForbidden))
+			return nil
+		}
+
+		api_util.Encode(w, http.StatusOK, "HELLO!")
 		return nil
 	}
 }

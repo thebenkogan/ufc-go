@@ -46,6 +46,7 @@ func addRoutes(
 
 	mux.Handle("GET /schedule", handler((events.HandleGetSchedule(eventScraper, eventCache))))
 
+	mux.Handle("POST /events/score_job", handler((events.HandleScoreJob(eventScraper, eventCache))))
 	mux.Handle("GET /events/picks", handler(oauth.Middleware(events.HandleGetAllPicks(eventScraper, eventCache, eventPicks))))
 	mux.Handle("GET /events/{id}", handler((events.HandleGetEvent(eventScraper, eventCache))))
 

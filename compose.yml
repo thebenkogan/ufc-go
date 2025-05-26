@@ -15,3 +15,14 @@ services:
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+  cronjob:
+    image: curlimages/curl:latest
+    env_file: .env
+    entrypoint: >
+      /bin/sh -c "
+        trap 'exit 0' TERM INT;
+        while true; do
+          curl -X POST host.docker.internal:$PORT/events/score_job -H 'api-key: $CRONJOB_API_KEY';
+          sleep 10 & wait \$!;
+        done
+      "
