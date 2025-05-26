@@ -10,13 +10,13 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
-	"reflect"
 	"testing"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joho/godotenv"
 	"github.com/redis/go-redis/v9"
+	"github.com/stretchr/testify/assert"
 	"github.com/thebenkogan/ufc/internal/auth"
 	"github.com/thebenkogan/ufc/internal/cache"
 	"github.com/thebenkogan/ufc/internal/events"
@@ -131,22 +131,15 @@ func TestServer(t *testing.T) {
 		}
 		defer resp.Body.Close()
 
-		if resp.StatusCode != http.StatusOK {
-			t.Errorf("expected status code 200, got %d", resp.StatusCode)
-		}
+		assert.Equal(t, http.StatusOK, resp.StatusCode)
 
 		var gotEvent *model.Event
 		if err := json.NewDecoder(resp.Body).Decode(&gotEvent); err != nil {
 			t.Fatal(err)
 		}
 
-		if !reflect.DeepEqual(gotEvent, testEvent) {
-			t.Errorf("expected event %+v, got %+v", testEvent, gotEvent)
-		}
-
-		if numScrapes != 1 {
-			t.Errorf("expected 1 scrape, got %d", numScrapes)
-		}
+		assert.Equal(t, testEvent, gotEvent)
+		assert.Equal(t, 1, numScrapes)
 
 		// second request should hit the cache
 		resp2, err := http.Get(ts.URL + "/events/" + testEventId)
@@ -155,22 +148,15 @@ func TestServer(t *testing.T) {
 		}
 		defer resp2.Body.Close()
 
-		if resp2.StatusCode != http.StatusOK {
-			t.Errorf("expected status code 200, got %d", resp2.StatusCode)
-		}
+		assert.Equal(t, http.StatusOK, resp2.StatusCode)
 
 		var gotEvent2 model.Event
 		if err := json.NewDecoder(resp2.Body).Decode(&gotEvent2); err != nil {
 			t.Fatal(err)
 		}
 
-		if !reflect.DeepEqual(gotEvent2, *testEvent) {
-			t.Errorf("expected event %+v, got %+v", testEvent, gotEvent)
-		}
-
-		if numScrapes != 1 {
-			t.Errorf("expected 1 scrape, got %d", numScrapes)
-		}
+		assert.Equal(t, *testEvent, gotEvent2)
+		assert.Equal(t, 1, numScrapes)
 	})
 
 	testEventId2 := "test-event-id2"
@@ -209,9 +195,7 @@ func TestServer(t *testing.T) {
 			}
 			defer resp.Body.Close()
 
-			if resp.StatusCode != http.StatusOK {
-				t.Errorf("expected status code 200, got %d", resp.StatusCode)
-			}
+			assert.Equal(t, http.StatusOK, resp.StatusCode)
 
 			resp2, err := http.Get(fmt.Sprintf("%s/events/%s/picks", ts.URL, testEventId2))
 			if err != nil {
@@ -219,18 +203,14 @@ func TestServer(t *testing.T) {
 			}
 			defer resp2.Body.Close()
 
-			if resp2.StatusCode != http.StatusOK {
-				t.Errorf("expected status code 200, got %d", resp2.StatusCode)
-			}
+			assert.Equal(t, http.StatusOK, resp2.StatusCode)
 
 			var gotPicks picks.Picks
 			if err := json.NewDecoder(resp2.Body).Decode(&gotPicks); err != nil {
 				t.Fatal(err)
 			}
 
-			if !reflect.DeepEqual(gotPicks.Winners, testPicks.Winners) {
-				t.Errorf("expected picks %+v, got %+v", testPicks.Winners, gotPicks.Winners)
-			}
+			assert.Equal(t, testPicks.Winners, gotPicks.Winners)
 		}
 
 		makePicksAndCheck([]string{"A", "D", "E"})
@@ -265,22 +245,15 @@ func TestServer(t *testing.T) {
 		}
 		defer resp.Body.Close()
 
-		if resp.StatusCode != http.StatusOK {
-			t.Errorf("expected status code 200, got %d", resp.StatusCode)
-		}
+		assert.Equal(t, http.StatusOK, resp.StatusCode)
 
 		var gotPicks picks.Picks
 		if err := json.NewDecoder(resp.Body).Decode(&gotPicks); err != nil {
 			t.Fatal(err)
 		}
 
-		if gotPicks.Score == nil {
-			t.Errorf("expected picks to be scored, got nil")
-		}
-
-		if gotPicks.Score != nil && *gotPicks.Score != 2 {
-			t.Errorf("expected score 2, got %d", *gotPicks.Score)
-		}
+		assert.NotNil(t, gotPicks.Score)
+		assert.Equal(t, 2, *gotPicks.Score)
 	})
 
 	testEventId3 := "test-event-id3"
@@ -318,9 +291,7 @@ func TestServer(t *testing.T) {
 		}
 		defer resp.Body.Close()
 
-		if resp.StatusCode != http.StatusOK {
-			t.Errorf("expected status code 200, got %d", resp.StatusCode)
-		}
+		assert.Equal(t, http.StatusOK, resp.StatusCode)
 
 		resp2, err := http.Get(fmt.Sprintf("%s/events/picks", ts.URL))
 		if err != nil {
@@ -328,24 +299,19 @@ func TestServer(t *testing.T) {
 		}
 		defer resp2.Body.Close()
 
-		if resp2.StatusCode != http.StatusOK {
-			t.Errorf("expected status code 200, got %d", resp2.StatusCode)
-		}
+		assert.Equal(t, http.StatusOK, resp2.StatusCode)
 
 		var gotPicks []*events.GetAllPicksResponse
 		if err := json.NewDecoder(resp2.Body).Decode(&gotPicks); err != nil {
 			t.Fatal(err)
 		}
 
+		assert.Len(t, gotPicks, 2)
+		assert.Equal(t, testEventId3, gotPicks[0].Picks.EventId)
+		assert.Equal(t, testEventId2, gotPicks[1].Picks.EventId)
+
 		if len(gotPicks) != 2 {
 			t.Errorf("expected 2 picks, got %d", len(gotPicks))
-		}
-
-		if gotPicks[0].Picks.EventId != testEventId3 {
-			t.Errorf("expected event ID %s, got %s", testEventId3, gotPicks[0].Picks.EventId)
-		}
-		if gotPicks[1].Picks.EventId != testEventId2 {
-			t.Errorf("expected event ID %s, got %s", testEventId2, gotPicks[1].Picks.EventId)
 		}
 	})
 
@@ -377,21 +343,14 @@ func TestServer(t *testing.T) {
 		}
 		defer resp.Body.Close()
 
-		if resp.StatusCode != http.StatusOK {
-			t.Errorf("expected status code 200, got %d", resp.StatusCode)
-		}
+		assert.Equal(t, http.StatusOK, resp.StatusCode)
 
 		var gotPicks []*events.GetAllPicksResponse
 		if err := json.NewDecoder(resp.Body).Decode(&gotPicks); err != nil {
 			t.Fatal(err)
 		}
 
-		if len(gotPicks) != 2 {
-			t.Errorf("expected 2 picks, got %d", len(gotPicks))
-		}
-
-		if gotPicks[0].Picks.Score == nil || *gotPicks[0].Picks.Score != 3 {
-			t.Errorf("expected score 2, got %v", gotPicks[0].Picks.Score)
-		}
+		assert.Len(t, gotPicks, 2)
+		assert.Equal(t, 3, *gotPicks[0].Picks.Score)
 	})
 }

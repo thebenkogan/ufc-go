@@ -2,10 +2,10 @@ package events
 
 import (
 	"fmt"
-	"math"
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/thebenkogan/ufc/internal/model"
 )
 
@@ -25,18 +25,14 @@ func TestFreshTime(t *testing.T) {
 		t.Run(fmt.Sprintf("event start time: %v, expected duration: %v", tt.startTime.Format(time.RFC1123), tt.expected), func(t *testing.T) {
 			event := &model.Event{StartTime: tt.startTime.Format(time.RFC3339), Fights: []model.Fight{{Fighters: []string{"A", "B"}}}}
 			got := freshTime(event)
-			if math.Abs(got.Seconds()-tt.expected.Seconds()) > 1 {
-				t.Errorf("got %v, want %v", got, tt.expected)
-			}
+			assert.InDelta(t, tt.expected.Seconds(), got.Seconds(), 1)
 		})
 	}
 
 	t.Run("Should return duringFreshTime when event is LIVE", func(t *testing.T) {
 		event := &model.Event{StartTime: "LIVE", Fights: []model.Fight{{Fighters: []string{"A", "B"}}}}
 		got := freshTime(event)
-		if got != duringFreshTime {
-			t.Errorf("got %v, want %v", got, duringFreshTime)
-		}
+		assert.Equal(t, duringFreshTime, got)
 	})
 }
 
@@ -62,11 +58,11 @@ func TestValidatePicks(t *testing.T) {
 	for _, tt := range validateTests {
 		t.Run(fmt.Sprintf("picks: %v, valid: %v", tt.picks, tt.valid), func(t *testing.T) {
 			err := validatePicks(event, tt.picks)
-			if tt.valid && err != nil {
-				t.Errorf("expected valid event, got error: %v", err)
+			if tt.valid {
+				assert.NoError(t, err)
 			}
-			if !tt.valid && err == nil {
-				t.Errorf("expected invalid event, got nil error")
+			if !tt.valid {
+				assert.Error(t, err)
 			}
 		})
 	}
@@ -93,17 +89,15 @@ func TestScorePicks(t *testing.T) {
 	for _, tt := range scoreTests {
 		t.Run(fmt.Sprintf("picks: %v, score: %v", tt.picks, tt.score), func(t *testing.T) {
 			got := scorePicks(event, tt.picks)
-			if got != tt.score {
-				t.Errorf("got %v, want %v", got, tt.score)
-			}
+			assert.Equal(t, tt.score, got)
 		})
 	}
 }
 
-func TestScrape(t *testing.T) {
-	eventScraper := ESPNEventScraper{}
-	es, _ := eventScraper.ScrapeSchedule()
-	for _, e := range es {
-		fmt.Println(e)
-	}
-}
+// func TestScrape(t *testing.T) {
+// 	eventScraper := ESPNEventScraper{}
+// 	es, _ := eventScraper.ScrapeSchedule()
+// 	for _, e := range es {
+// 		fmt.Println(e)
+// 	}
+// }

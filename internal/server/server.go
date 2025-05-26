@@ -18,7 +18,7 @@ func NewServer(oauth auth.OIDCAuth, eventScraper events.EventScraper, eventCache
 	mux := http.NewServeMux()
 	addRoutes(mux, oauth, eventScraper, eventCache, eventPicks)
 	handler := cors.New(cors.Options{
-		AllowedOrigins:   []string{"http://localhost:5173"},
+		AllowedOrigins:   []string{"http://localhost:5174"},
 		AllowCredentials: true,
 	}).Handler(mux)
 	return handler
