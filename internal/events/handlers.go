@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"sync"
 	"time"
 
 	"github.com/samber/lo"
@@ -14,10 +13,9 @@ import (
 	"github.com/thebenkogan/ufc/internal/picks"
 	"github.com/thebenkogan/ufc/internal/util/api_util"
 	"github.com/thebenkogan/ufc/internal/util/logs"
-	"golang.org/x/sync/errgroup"
 )
 
-const SCHEDULE_TTL = time.Hour
+const scheduleTTL = time.Hour
 
 func HandleGetSchedule(eventScraper EventScraper, eventCache cache.EventCacheRepository) api_util.Handler {
 	return func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
@@ -41,7 +39,7 @@ func HandleGetSchedule(eventScraper EventScraper, eventCache cache.EventCacheRep
 
 		logs.Logger(ctx).Info("parsed schedule, storing to cache")
 
-		if err := eventCache.SetSchedule(ctx, schedule, SCHEDULE_TTL); err != nil {
+		if err := eventCache.SetSchedule(ctx, schedule, scheduleTTL); err != nil {
 			logs.Logger(ctx).Warn("failed to cache schedule", "error", err)
 		}
 
@@ -83,10 +81,6 @@ func HandleGetPicks(eventScraper EventScraper, eventCache cache.EventCacheReposi
 			userPicks = &picks.Picks{UserId: user.Id, EventId: eventId, Winners: []string{}}
 		}
 
-		if err := checkUpdatePicksScore(ctx, user, event, userPicks, eventPicks); err != nil {
-			return err
-		}
-
 		api_util.Encode(w, http.StatusOK, userPicks)
 		return nil
 	}
@@ -119,35 +113,11 @@ func HandleGetAllPicks(eventScraper EventScraper, eventCache cache.EventCacheRep
 			eventIds = append(eventIds, pick.EventId)
 		}
 
-		eventMap, err := eventCache.GetEvents(ctx, eventIds)
+		fmt.Println("event ids", eventIds)
+
+		eventMap, err := getEventsWithCache(ctx, eventScraper, eventCache, eventIds)
 		if err != nil {
 			return fmt.Errorf("error getting events from IDs: %w", err)
-		}
-
-		group, gCtx := errgroup.WithContext(ctx)
-		group.SetLimit(5)
-		var mu sync.Mutex
-		for _, up := range userPicks {
-			up := up
-			group.Go(func() error {
-				mu.Lock()
-				event, ok := eventMap[up.EventId]
-				mu.Unlock()
-				if !ok {
-					event, err = getEventWithCache(gCtx, eventScraper, eventCache, up.EventId)
-					if err != nil {
-						return err
-					}
-					mu.Lock()
-					eventMap[event.Id] = event
-					mu.Unlock()
-				}
-				return checkUpdatePicksScore(gCtx, user, event, up, eventPicks)
-			})
-		}
-
-		if err := group.Wait(); err != nil {
-			return fmt.Errorf("error processing events: %w", err)
 		}
 
 		res := make([]*GetAllPicksResponse, 0, len(userPicks))

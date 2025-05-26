@@ -49,11 +49,11 @@ func (a testOAuth) Middleware(h api_util.Handler) api_util.Handler {
 }
 
 type testEventScraper struct {
-	maker func() *model.Event
+	maker func(id string) *model.Event
 }
 
 func (s testEventScraper) ScrapeEvent(id string) (*model.Event, error) {
-	return s.maker(), nil
+	return s.maker(id), nil
 }
 
 func (s testEventScraper) ScrapeSchedule() ([]*model.EventInfo, error) {
@@ -113,7 +113,7 @@ func TestServer(t *testing.T) {
 		numScrapes := 0
 
 		testScraper := testEventScraper{
-			maker: func() *model.Event {
+			maker: func(_ string) *model.Event {
 				numScrapes += 1
 				return testEvent
 			},
@@ -159,20 +159,19 @@ func TestServer(t *testing.T) {
 	})
 
 	testEventId2 := "test-event-id2"
+	testEvent2 := &model.Event{
+		Id:        testEventId2,
+		StartTime: time.Now().Add(4 * time.Hour).Format(time.RFC3339),
+		Fights: []model.Fight{
+			{Fighters: []string{"A", "B"}},
+			{Fighters: []string{"C", "D"}},
+			{Fighters: []string{"E", "F"}},
+		},
+	}
 	t.Run("should persist event picks and allow updates", func(t *testing.T) {
-		testEvent := &model.Event{
-			Id:        testEventId2,
-			StartTime: time.Now().Add(4 * time.Hour).Format(time.RFC3339),
-			Fights: []model.Fight{
-				{Fighters: []string{"A", "B"}},
-				{Fighters: []string{"C", "D"}},
-				{Fighters: []string{"E", "F"}},
-			},
-		}
-
 		testScraper := testEventScraper{
-			maker: func() *model.Event {
-				return testEvent
+			maker: func(_ string) *model.Event {
+				return testEvent2
 			},
 		}
 
@@ -216,61 +215,27 @@ func TestServer(t *testing.T) {
 		makePicksAndCheck([]string{"A", "D", "F"})
 	})
 
-	t.Run("should score picks when event is finished", func(t *testing.T) {
-		clearEvents()
-		testEvent := &model.Event{
-			Id:        testEventId2,
-			StartTime: time.Now().Add(-12 * time.Hour).Format(time.RFC3339),
-			Fights: []model.Fight{
-				{Fighters: []string{"A", "B"}, Winner: "A"},
-				{Fighters: []string{"C", "D"}, Winner: "D"},
-				{Fighters: []string{"E", "F"}, Winner: "E"},
-			},
-		}
-
-		testScraper := testEventScraper{
-			maker: func() *model.Event {
-				return testEvent
-			},
-		}
-
-		srv := server.NewServer(testOAuth{}, testScraper, eventCache, eventPicks)
-		ts := httptest.NewServer(srv)
-		defer ts.Close()
-
-		resp, err := http.Get(fmt.Sprintf("%s/events/%s/picks", ts.URL, testEventId2))
-		if err != nil {
-			t.Fatal(err)
-		}
-		defer resp.Body.Close()
-
-		assert.Equal(t, http.StatusOK, resp.StatusCode)
-
-		var gotPicks picks.Picks
-		if err := json.NewDecoder(resp.Body).Decode(&gotPicks); err != nil {
-			t.Fatal(err)
-		}
-
-		assert.NotNil(t, gotPicks.Score)
-		assert.Equal(t, 2, *gotPicks.Score)
-	})
-
 	testEventId3 := "test-event-id3"
+	testEvent3 := &model.Event{
+		Id:        testEventId3,
+		StartTime: time.Now().Add(4 * time.Hour).Format(time.RFC3339),
+		Fights: []model.Fight{
+			{Fighters: []string{"1", "2"}},
+			{Fighters: []string{"3", "4"}},
+			{Fighters: []string{"5", "6"}},
+		},
+	}
 	t.Run("should get all picks across multiple events", func(t *testing.T) {
 		clearEvents()
-		testEvent := &model.Event{
-			Id:        testEventId3,
-			StartTime: time.Now().Add(4 * time.Hour).Format(time.RFC3339),
-			Fights: []model.Fight{
-				{Fighters: []string{"1", "2"}},
-				{Fighters: []string{"3", "4"}},
-				{Fighters: []string{"5", "6"}},
-			},
-		}
 
 		testScraper := testEventScraper{
-			maker: func() *model.Event {
-				return testEvent
+			maker: func(id string) *model.Event {
+				if id == testEventId3 {
+					return testEvent3
+				} else if id == testEventId2 {
+					return testEvent2
+				}
+				return nil
 			},
 		}
 
@@ -305,51 +270,17 @@ func TestServer(t *testing.T) {
 			t.Fatal(err)
 		}
 
+		b, _ := json.Marshal(gotPicks)
+		fmt.Println(string(b))
+
 		assert.Len(t, gotPicks, 2)
 		assert.Equal(t, testEventId3, gotPicks[0].Picks.EventId)
 		assert.Equal(t, testEventId2, gotPicks[1].Picks.EventId)
+		assert.Equal(t, testEvent3, gotPicks[0].Event)
+		assert.Equal(t, testEvent2, gotPicks[1].Event)
 
 		if len(gotPicks) != 2 {
 			t.Errorf("expected 2 picks, got %d", len(gotPicks))
 		}
-	})
-
-	t.Run("should score picks when getting all events", func(t *testing.T) {
-		clearEvents()
-		testEvent := &model.Event{
-			Id:        testEventId3,
-			StartTime: time.Now().Add(-12 * time.Hour).Format(time.RFC3339),
-			Fights: []model.Fight{
-				{Fighters: []string{"1", "2"}, Winner: "1"},
-				{Fighters: []string{"3", "4"}, Winner: "4"},
-				{Fighters: []string{"5", "6"}, Winner: "5"},
-			},
-		}
-
-		testScraper := testEventScraper{
-			maker: func() *model.Event {
-				return testEvent
-			},
-		}
-
-		srv := server.NewServer(testOAuth{}, testScraper, eventCache, eventPicks)
-		ts := httptest.NewServer(srv)
-		defer ts.Close()
-
-		resp, err := http.Get(fmt.Sprintf("%s/events/picks", ts.URL))
-		if err != nil {
-			t.Fatal(err)
-		}
-		defer resp.Body.Close()
-
-		assert.Equal(t, http.StatusOK, resp.StatusCode)
-
-		var gotPicks []*events.GetAllPicksResponse
-		if err := json.NewDecoder(resp.Body).Decode(&gotPicks); err != nil {
-			t.Fatal(err)
-		}
-
-		assert.Len(t, gotPicks, 2)
-		assert.Equal(t, 3, *gotPicks[0].Picks.Score)
 	})
 }

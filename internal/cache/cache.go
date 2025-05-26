@@ -11,7 +11,6 @@ import (
 
 type EventCacheRepository interface {
 	GetEvent(ctx context.Context, id string) (*model.Event, error)
-	GetEvents(ctx context.Context, ids []string) (map[string]*model.Event, error)
 	SetEvent(ctx context.Context, id string, event *model.Event, ttl time.Duration) error
 	GetSchedule(ctx context.Context) ([]*model.EventInfo, error)
 	SetSchedule(ctx context.Context, events []*model.EventInfo, ttl time.Duration) error
@@ -44,29 +43,6 @@ func (r *RedisEventCache) GetEvent(ctx context.Context, id string) (*model.Event
 		return nil, err
 	}
 	return &event, nil
-}
-
-func (r *RedisEventCache) GetEvents(ctx context.Context, ids []string) (map[string]*model.Event, error) {
-	keys := make([]string, len(ids))
-	for i, id := range ids {
-		keys[i] = r.key(id)
-	}
-	eventJSONs, err := r.client.MGet(ctx, keys...).Result()
-	if err != nil {
-		return nil, err
-	}
-	events := make(map[string]*model.Event)
-	for i, eventJSON := range eventJSONs {
-		if eventJSON == nil {
-			continue
-		}
-		var event model.Event
-		if err := json.Unmarshal([]byte(eventJSON.(string)), &event); err != nil {
-			return nil, err
-		}
-		events[ids[i]] = &event
-	}
-	return events, nil
 }
 
 func (r *RedisEventCache) SetEvent(ctx context.Context, id string, event *model.Event, ttl time.Duration) error {

@@ -4,16 +4,42 @@ import (
 	"context"
 	"fmt"
 	"slices"
+	"sync"
 	"time"
 
-	"github.com/thebenkogan/ufc/internal/auth"
 	"github.com/thebenkogan/ufc/internal/cache"
 	"github.com/thebenkogan/ufc/internal/model"
-	"github.com/thebenkogan/ufc/internal/picks"
 	"github.com/thebenkogan/ufc/internal/util/logs"
+	"golang.org/x/sync/errgroup"
 )
 
 const eventLatest string = "latest"
+
+func getEventsWithCache(ctx context.Context, eventScraper EventScraper, eventCache cache.EventCacheRepository, ids []string) (map[string]*model.Event, error) {
+	events := make(map[string]*model.Event, len(ids))
+	group, gCtx := errgroup.WithContext(ctx)
+	group.SetLimit(5)
+	var mu sync.Mutex
+	for _, id := range ids {
+		group.Go(func() error {
+			event, err := getEventWithCache(gCtx, eventScraper, eventCache, id)
+			if err != nil {
+				return err
+			}
+			mu.Lock()
+			events[id] = event
+			mu.Unlock()
+			return nil
+		})
+	}
+
+	if err := group.Wait(); err != nil {
+		return nil, fmt.Errorf("error processing events: %w", err)
+	}
+
+	return events, nil
+
+}
 
 func getEventWithCache(ctx context.Context, eventScraper EventScraper, eventCache cache.EventCacheRepository, id string) (*model.Event, error) {
 	logs.Logger(ctx).Info(fmt.Sprintf("Getting event, ID: %s", id))
@@ -116,17 +142,6 @@ func validatePicks(event *model.Event, picks []string) error {
 		pickedFights[fightId] = struct{}{}
 	}
 
-	return nil
-}
-
-func checkUpdatePicksScore(ctx context.Context, user *auth.User, event *model.Event, userPicks *picks.Picks, eventPicks picks.EventPicksRepository) error {
-	if userPicks.Score == nil && event.IsFinished() && len(userPicks.Winners) > 0 {
-		score := scorePicks(event, userPicks.Winners)
-		userPicks.Score = &score
-		if err := eventPicks.ScorePicks(ctx, user, event.Id, score); err != nil {
-			return err
-		}
-	}
 	return nil
 }
 
