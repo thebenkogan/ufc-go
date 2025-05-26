@@ -42,7 +42,7 @@ func (a testOAuth) HandleAuthCallback() api_util.Handler {
 func (a testOAuth) Middleware(h api_util.Handler) api_util.Handler {
 	return func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
 		user := auth.User{Id: "user", Email: "user@gmail.com", Name: "user"}
-		ctx = context.WithValue(ctx, "user", user)
+		ctx = auth.WithUser(ctx, &user)
 		rWithUser := r.WithContext(ctx)
 		return h(ctx, w, rWithUser)
 	}

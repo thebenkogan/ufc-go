@@ -119,7 +119,7 @@ func validatePicks(event *model.Event, picks []string) error {
 	return nil
 }
 
-func checkUpdatePicksScore(ctx context.Context, user auth.User, event *model.Event, userPicks *picks.Picks, eventPicks picks.EventPicksRepository) error {
+func checkUpdatePicksScore(ctx context.Context, user *auth.User, event *model.Event, userPicks *picks.Picks, eventPicks picks.EventPicksRepository) error {
 	if userPicks.Score == nil && event.IsFinished() && len(userPicks.Winners) > 0 {
 		score := scorePicks(event, userPicks.Winners)
 		userPicks.Score = &score

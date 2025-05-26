@@ -93,7 +93,6 @@ func (a *GoogleAuth) HandleAuthCallback() api_util.Handler {
 		}
 
 		setCookie(w, r, "id_token", rawIDToken)
-		_, _ = w.Write([]byte("Hello, " + user.Name))
 
 		return nil
 	}
@@ -118,7 +117,7 @@ func (a *GoogleAuth) Middleware(h api_util.Handler) api_util.Handler {
 			return fmt.Errorf("failed to get claims: %w", err)
 		}
 
-		ctx = context.WithValue(ctx, "user", user)
+		ctx = WithUser(ctx, &user)
 		rWithUser := r.WithContext(ctx)
 
 		return h(ctx, w, rWithUser)

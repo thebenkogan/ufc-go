@@ -64,8 +64,8 @@ func HandleGetEvent(eventScraper EventScraper, eventCache cache.EventCacheReposi
 
 func HandleGetPicks(eventScraper EventScraper, eventCache cache.EventCacheRepository, eventPicks picks.EventPicksRepository) api_util.Handler {
 	return func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
-		user, ok := ctx.Value("user").(auth.User)
-		if !ok {
+		user := auth.GetUser(ctx)
+		if user == nil {
 			return fmt.Errorf("no user in context")
 		}
 
@@ -99,8 +99,8 @@ type GetAllPicksResponse struct {
 
 func HandleGetAllPicks(eventScraper EventScraper, eventCache cache.EventCacheRepository, eventPicks picks.EventPicksRepository) api_util.Handler {
 	return func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
-		user, ok := ctx.Value("user").(auth.User)
-		if !ok {
+		user := auth.GetUser(ctx)
+		if user == nil {
 			return fmt.Errorf("no user in context")
 		}
 
@@ -187,8 +187,8 @@ func HandlePostPicks(eventScraper EventScraper, eventCache cache.EventCacheRepos
 			return nil
 		}
 
-		user, ok := ctx.Value("user").(auth.User)
-		if !ok {
+		user := auth.GetUser(ctx)
+		if user == nil {
 			return fmt.Errorf("no user in context")
 		}
 

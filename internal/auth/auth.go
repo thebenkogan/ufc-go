@@ -49,3 +49,18 @@ func HandleMe(auth OIDCAuth) api_util.Handler {
 	}
 	return auth.Middleware(handler)
 }
+
+type authKey string
+
+const userKey authKey = "user"
+
+func WithUser(ctx context.Context, user *User) context.Context {
+	return context.WithValue(ctx, userKey, user)
+}
+
+func GetUser(ctx context.Context) *User {
+	if user, ok := ctx.Value(userKey).(*User); ok {
+		return user
+	}
+	return nil
+}

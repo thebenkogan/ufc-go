@@ -18,10 +18,10 @@ type Picks struct {
 }
 
 type EventPicksRepository interface {
-	GetPicks(ctx context.Context, user auth.User, eventId string) (*Picks, error)
-	GetAllPicks(ctx context.Context, user auth.User) ([]*Picks, error)
-	SavePicks(ctx context.Context, user auth.User, eventId string, picks []string) error
-	ScorePicks(ctx context.Context, user auth.User, eventId string, score int) error
+	GetPicks(ctx context.Context, user *auth.User, eventId string) (*Picks, error)
+	GetAllPicks(ctx context.Context, user *auth.User) ([]*Picks, error)
+	SavePicks(ctx context.Context, user *auth.User, eventId string, picks []string) error
+	ScorePicks(ctx context.Context, user *auth.User, eventId string, score int) error
 }
 
 type PostgresEventPicks struct {
@@ -34,7 +34,7 @@ func NewPostgresEventPicks(client *pgxpool.Pool) *PostgresEventPicks {
 	}
 }
 
-func (p *PostgresEventPicks) GetPicks(ctx context.Context, user auth.User, eventId string) (*Picks, error) {
+func (p *PostgresEventPicks) GetPicks(ctx context.Context, user *auth.User, eventId string) (*Picks, error) {
 	rows, _ := p.client.Query(ctx, "SELECT * FROM picks WHERE user_id = $1 AND event_id = $2", user.Id, eventId)
 	picks, err := pgx.CollectRows(rows, pgx.RowToAddrOfStructByName[Picks])
 	if err != nil || len(picks) == 0 {
@@ -43,7 +43,7 @@ func (p *PostgresEventPicks) GetPicks(ctx context.Context, user auth.User, event
 	return picks[0], nil
 }
 
-func (p *PostgresEventPicks) GetAllPicks(ctx context.Context, user auth.User) ([]*Picks, error) {
+func (p *PostgresEventPicks) GetAllPicks(ctx context.Context, user *auth.User) ([]*Picks, error) {
 	rows, _ := p.client.Query(ctx, "SELECT * FROM picks WHERE user_id = $1 ORDER BY created_at DESC", user.Id)
 	picks, err := pgx.CollectRows(rows, pgx.RowToAddrOfStructByName[Picks])
 	if err != nil {
@@ -52,14 +52,14 @@ func (p *PostgresEventPicks) GetAllPicks(ctx context.Context, user auth.User) ([
 	return picks, nil
 }
 
-func (p *PostgresEventPicks) SavePicks(ctx context.Context, user auth.User, eventId string, picks []string) error {
+func (p *PostgresEventPicks) SavePicks(ctx context.Context, user *auth.User, eventId string, picks []string) error {
 	if _, err := p.client.Exec(ctx, "INSERT INTO picks VALUES ($1, $2, $3) ON CONFLICT (user_id, event_id) DO UPDATE SET picks = EXCLUDED.picks, created_at = CURRENT_TIMESTAMP", user.Id, eventId, picks); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (p *PostgresEventPicks) ScorePicks(ctx context.Context, user auth.User, eventId string, score int) error {
+func (p *PostgresEventPicks) ScorePicks(ctx context.Context, user *auth.User, eventId string, score int) error {
 	if _, err := p.client.Exec(ctx, "UPDATE picks SET score = $1 WHERE user_id = $2 AND event_id = $3", score, user.Id, eventId); err != nil {
 		return err
 	}
