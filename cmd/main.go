@@ -41,7 +41,7 @@ func run(ctx context.Context) error {
 	host, port := os.Getenv("HOST"), os.Getenv("PORT")
 	address := fmt.Sprintf("%s:%s", host, port)
 
-	auth, err := auth.NewGoogleAuth(ctx, os.Getenv("GOOGLE_OAUTH2_CLIENT_ID"), os.Getenv("GOOGLE_OAUTH2_CLIENT_SECRET"), address)
+	auth, err := auth.NewGoogleAuth(ctx, os.Getenv("GOOGLE_OAUTH2_CLIENT_ID"), os.Getenv("GOOGLE_OAUTH2_CLIENT_SECRET"))
 	if err != nil {
 		return fmt.Errorf("error creating auth: %w", err)
 	}

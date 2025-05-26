@@ -16,7 +16,7 @@ type GoogleAuth struct {
 	tokenVerifier *oidc.IDTokenVerifier
 }
 
-func NewGoogleAuth(ctx context.Context, clientId, clientSecret, address string) (*GoogleAuth, error) {
+func NewGoogleAuth(ctx context.Context, clientId, clientSecret string) (*GoogleAuth, error) {
 	provider, err := oidc.NewProvider(ctx, "https://accounts.google.com")
 	if err != nil {
 		return nil, err
@@ -29,7 +29,7 @@ func NewGoogleAuth(ctx context.Context, clientId, clientSecret, address string) 
 		ClientID:     clientId,
 		ClientSecret: clientSecret,
 		Endpoint:     provider.Endpoint(),
-		RedirectURL:  fmt.Sprintf("http://%s/auth/google/callback", address),
+		RedirectURL:  "http://localhost:5173/auth/google/callback",
 		Scopes:       []string{oidc.ScopeOpenID, "profile", "email"},
 	}
 	return &GoogleAuth{provider, config, verifier}, nil
