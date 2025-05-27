@@ -170,6 +170,22 @@ func TestServer(t *testing.T) {
 		require.Equal(t, 1, numScrapes)
 	})
 
+	postPicks := func(t *testing.T, ts *httptest.Server, eventID string, winners []string) {
+		testPicks := events.PostEventPicksRequest{
+			Winners: winners,
+		}
+		var buf bytes.Buffer
+		_ = json.NewEncoder(&buf).Encode(testPicks)
+
+		resp, err := http.Post(fmt.Sprintf("%s/events/%s/picks", ts.URL, eventID), "application/json", &buf)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer resp.Body.Close()
+
+		require.Equal(t, http.StatusOK, resp.StatusCode)
+	}
+
 	testEventId2 := "test-event-id2"
 	testEvent2 := &model.Event{
 		Id:        testEventId2,
@@ -193,19 +209,8 @@ func TestServer(t *testing.T) {
 
 		makePicksAndCheck := func(winners []string) {
 			t.Helper()
-			testPicks := events.PostEventPicksRequest{
-				Winners: winners,
-			}
-			var buf bytes.Buffer
-			_ = json.NewEncoder(&buf).Encode(testPicks)
 
-			resp, err := http.Post(fmt.Sprintf("%s/events/%s/picks", ts.URL, testEventId2), "application/json", &buf)
-			if err != nil {
-				t.Fatal(err)
-			}
-			defer resp.Body.Close()
-
-			require.Equal(t, http.StatusOK, resp.StatusCode)
+			postPicks(t, ts, testEventId2, winners)
 
 			resp2, err := http.Get(fmt.Sprintf("%s/events/%s/picks", ts.URL, testEventId2))
 			if err != nil {
@@ -220,12 +225,29 @@ func TestServer(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			require.Equal(t, testPicks.Winners, gotPicks.Winners)
+			require.Equal(t, winners, gotPicks.Winners)
 		}
 
 		makePicksAndCheck([]string{"A", "D", "E"})
 		makePicksAndCheck([]string{"A", "D", "F"})
 	})
+
+	getAllUserPicks := func(t *testing.T, ts *httptest.Server) []*events.GetAllPicksResponse {
+		resp, err := http.Get(fmt.Sprintf("%s/events/picks", ts.URL))
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer resp.Body.Close()
+
+		require.Equal(t, http.StatusOK, resp.StatusCode)
+
+		var gotPicks []*events.GetAllPicksResponse
+		if err := json.NewDecoder(resp.Body).Decode(&gotPicks); err != nil {
+			t.Fatal(err)
+		}
+
+		return gotPicks
+	}
 
 	testEventId3 := "test-event-id3"
 	testEvent3 := &model.Event{
@@ -255,33 +277,9 @@ func TestServer(t *testing.T) {
 		ts := httptest.NewServer(srv)
 		defer ts.Close()
 
-		testPicks := events.PostEventPicksRequest{
-			Winners: []string{"1", "4", "5"},
-		}
-		var buf bytes.Buffer
-		_ = json.NewEncoder(&buf).Encode(testPicks)
+		postPicks(t, ts, testEventId3, []string{"1", "4", "5"})
 
-		resp, err := http.Post(fmt.Sprintf("%s/events/%s/picks", ts.URL, testEventId3), "application/json", &buf)
-		if err != nil {
-			t.Fatal(err)
-		}
-		defer resp.Body.Close()
-
-		require.Equal(t, http.StatusOK, resp.StatusCode)
-
-		resp2, err := http.Get(fmt.Sprintf("%s/events/picks", ts.URL))
-		if err != nil {
-			t.Fatal(err)
-		}
-		defer resp2.Body.Close()
-
-		require.Equal(t, http.StatusOK, resp2.StatusCode)
-
-		var gotPicks []*events.GetAllPicksResponse
-		if err := json.NewDecoder(resp2.Body).Decode(&gotPicks); err != nil {
-			t.Fatal(err)
-		}
-
+		gotPicks := getAllUserPicks(t, ts)
 		require.Len(t, gotPicks, 2)
 		require.Equal(t, testEventId3, gotPicks[0].Picks.EventId)
 		require.Equal(t, testEventId2, gotPicks[1].Picks.EventId)
@@ -335,70 +333,21 @@ func TestServer(t *testing.T) {
 		// should do nothing
 		runScoreJob(t, ts)
 
-		// first user's picks
-		testPicks := events.PostEventPicksRequest{
-			Winners: []string{"1", "3", "5"},
-		}
-		var buf bytes.Buffer
-		_ = json.NewEncoder(&buf).Encode(testPicks)
-
-		resp, err := http.Post(fmt.Sprintf("%s/events/%s/picks", ts.URL, finishedEvent.Id), "application/json", &buf)
-		if err != nil {
-			t.Fatal(err)
-		}
-		defer resp.Body.Close()
-
-		require.Equal(t, http.StatusOK, resp.StatusCode)
-
-		// second user's picks
-		testPicks = events.PostEventPicksRequest{
-			Winners: []string{"2", "3", "5"},
-		}
-		var buf2 bytes.Buffer
-		_ = json.NewEncoder(&buf2).Encode(testPicks)
-
-		resp, err = http.Post(fmt.Sprintf("%s/events/%s/picks", ts.URL, finishedEvent.Id), "application/json", &buf2)
-		if err != nil {
-			t.Fatal(err)
-		}
-		defer resp.Body.Close()
-
-		require.Equal(t, http.StatusOK, resp.StatusCode)
+		postPicks(t, ts, finishedEvent.Id, []string{"1", "3", "5"}) // first user's picks
+		postPicks(t, ts, finishedEvent.Id, []string{"2", "3", "5"}) // second user's picks
 
 		runScoreJob(t, ts)
 
-		resp, err = http.Get(fmt.Sprintf("%s/events/picks", ts.URL))
-		if err != nil {
-			t.Fatal(err)
-		}
-		defer resp.Body.Close()
-
-		require.Equal(t, http.StatusOK, resp.StatusCode)
-
-		var user1Picks []*events.GetAllPicksResponse
-		if err := json.NewDecoder(resp.Body).Decode(&user1Picks); err != nil {
-			t.Fatal(err)
-		}
-
+		user1Picks := getAllUserPicks(t, ts)
 		require.Len(t, user1Picks, 1)
 		require.Equal(t, finishedEvent.Id, user1Picks[0].Picks.EventId)
 		require.Equal(t, 2, *user1Picks[0].Score)
+		require.Equal(t, finishedEvent, user1Picks[0].Event)
 
-		resp, err = http.Get(fmt.Sprintf("%s/events/picks", ts.URL))
-		if err != nil {
-			t.Fatal(err)
-		}
-		defer resp.Body.Close()
-
-		require.Equal(t, http.StatusOK, resp.StatusCode)
-
-		var user2Picks []*events.GetAllPicksResponse
-		if err := json.NewDecoder(resp.Body).Decode(&user2Picks); err != nil {
-			t.Fatal(err)
-		}
-
+		user2Picks := getAllUserPicks(t, ts)
 		require.Len(t, user2Picks, 1)
 		require.Equal(t, finishedEvent.Id, user2Picks[0].Picks.EventId)
 		require.Equal(t, 1, *user2Picks[0].Score)
+		require.Equal(t, finishedEvent, user2Picks[0].Event)
 	})
 }
