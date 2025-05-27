@@ -6,7 +6,7 @@ import (
 	"net/http"
 
 	"github.com/coreos/go-oidc/v3/oidc"
-	"github.com/thebenkogan/ufc/internal/util/api_util"
+	"github.com/thebenkogan/ufc/internal/util/api"
 	"golang.org/x/oauth2"
 )
 
@@ -35,7 +35,7 @@ func NewGoogleAuth(ctx context.Context, clientId, clientSecret string) (*GoogleA
 	return &GoogleAuth{provider, config, verifier}, nil
 }
 
-func (a *GoogleAuth) HandleBeginAuth() api_util.Handler {
+func (a *GoogleAuth) HandleBeginAuth() api.Handler {
 	return func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
 		state, err := randString(16)
 		if err != nil {
@@ -52,7 +52,7 @@ func (a *GoogleAuth) HandleBeginAuth() api_util.Handler {
 	}
 }
 
-func (a *GoogleAuth) HandleAuthCallback() api_util.Handler {
+func (a *GoogleAuth) HandleAuthCallback() api.Handler {
 	return func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
 		state, err := r.Cookie("state")
 		if err != nil {
@@ -98,7 +98,7 @@ func (a *GoogleAuth) HandleAuthCallback() api_util.Handler {
 	}
 }
 
-func (a *GoogleAuth) Middleware(h api_util.Handler) api_util.Handler {
+func (a *GoogleAuth) Middleware(h api.Handler) api.Handler {
 	return func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
 		idTokenCookie, err := r.Cookie("id_token")
 		if err == http.ErrNoCookie {

@@ -15,33 +15,41 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joho/godotenv"
 	"github.com/redis/go-redis/v9"
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/thebenkogan/ufc/internal/auth"
 	"github.com/thebenkogan/ufc/internal/cache"
 	"github.com/thebenkogan/ufc/internal/events"
 	"github.com/thebenkogan/ufc/internal/model"
 	"github.com/thebenkogan/ufc/internal/picks"
 	"github.com/thebenkogan/ufc/internal/server"
-	"github.com/thebenkogan/ufc/internal/util/api_util"
+	"github.com/thebenkogan/ufc/internal/util/api"
 )
 
-type testOAuth struct{}
+type testOAuth struct {
+	ids []string // user IDs to cycle through
+	idx int
+}
 
-func (a testOAuth) HandleBeginAuth() api_util.Handler {
+func (a *testOAuth) HandleBeginAuth() api.Handler {
 	return func(_ context.Context, w http.ResponseWriter, r *http.Request) error {
 		panic("not implemented")
 	}
 }
 
-func (a testOAuth) HandleAuthCallback() api_util.Handler {
+func (a *testOAuth) HandleAuthCallback() api.Handler {
 	return func(_ context.Context, w http.ResponseWriter, r *http.Request) error {
 		panic("not implemented")
 	}
 }
 
-func (a testOAuth) Middleware(h api_util.Handler) api_util.Handler {
+func (a *testOAuth) Middleware(h api.Handler) api.Handler {
 	return func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
-		user := auth.User{Id: "user", Email: "user@gmail.com", Name: "user"}
+		userId := "user"
+		if len(a.ids) > 0 {
+			userId = a.ids[a.idx]
+			a.idx = (a.idx + 1) % len(a.ids)
+		}
+		user := auth.User{Id: userId, Email: "user@gmail.com", Name: "user"}
 		ctx = auth.WithUser(ctx, &user)
 		rWithUser := r.WithContext(ctx)
 		return h(ctx, w, rWithUser)
@@ -71,12 +79,12 @@ func TestServer(t *testing.T) {
 	})
 	defer rdb.Close()
 
-	clearEvents := func() {
+	clearEventCache := func() {
 		if _, err := rdb.FlushAll(ctx).Result(); err != nil {
 			t.Fatal(err)
 		}
 	}
-	clearEvents()
+	clearEventCache()
 
 	eventCache := cache.NewRedisEventCache(rdb)
 
@@ -97,9 +105,13 @@ func TestServer(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer pool.Close()
-	if _, err := pool.Exec(ctx, "TRUNCATE TABLE picks"); err != nil {
-		t.Fatal(err)
+
+	clearPicksTable := func() {
+		if _, err := pool.Exec(ctx, "TRUNCATE TABLE picks"); err != nil {
+			t.Fatal(err)
+		}
 	}
+	clearPicksTable()
 
 	eventPicks := picks.NewPostgresEventPicks(pool)
 
@@ -119,7 +131,7 @@ func TestServer(t *testing.T) {
 			},
 		}
 
-		srv := server.NewServer(testOAuth{}, testScraper, eventCache, nil)
+		srv := server.NewServer(&testOAuth{}, testScraper, eventCache, nil)
 		ts := httptest.NewServer(srv)
 		defer ts.Close()
 
@@ -130,15 +142,15 @@ func TestServer(t *testing.T) {
 		}
 		defer resp.Body.Close()
 
-		assert.Equal(t, http.StatusOK, resp.StatusCode)
+		require.Equal(t, http.StatusOK, resp.StatusCode)
 
 		var gotEvent *model.Event
 		if err := json.NewDecoder(resp.Body).Decode(&gotEvent); err != nil {
 			t.Fatal(err)
 		}
 
-		assert.Equal(t, testEvent, gotEvent)
-		assert.Equal(t, 1, numScrapes)
+		require.Equal(t, testEvent, gotEvent)
+		require.Equal(t, 1, numScrapes)
 
 		// second request should hit the cache
 		resp2, err := http.Get(ts.URL + "/events/" + testEventId)
@@ -147,15 +159,15 @@ func TestServer(t *testing.T) {
 		}
 		defer resp2.Body.Close()
 
-		assert.Equal(t, http.StatusOK, resp2.StatusCode)
+		require.Equal(t, http.StatusOK, resp2.StatusCode)
 
 		var gotEvent2 model.Event
 		if err := json.NewDecoder(resp2.Body).Decode(&gotEvent2); err != nil {
 			t.Fatal(err)
 		}
 
-		assert.Equal(t, *testEvent, gotEvent2)
-		assert.Equal(t, 1, numScrapes)
+		require.Equal(t, *testEvent, gotEvent2)
+		require.Equal(t, 1, numScrapes)
 	})
 
 	testEventId2 := "test-event-id2"
@@ -175,7 +187,7 @@ func TestServer(t *testing.T) {
 			},
 		}
 
-		srv := server.NewServer(testOAuth{}, testScraper, eventCache, eventPicks)
+		srv := server.NewServer(&testOAuth{}, testScraper, eventCache, eventPicks)
 		ts := httptest.NewServer(srv)
 		defer ts.Close()
 
@@ -193,7 +205,7 @@ func TestServer(t *testing.T) {
 			}
 			defer resp.Body.Close()
 
-			assert.Equal(t, http.StatusOK, resp.StatusCode)
+			require.Equal(t, http.StatusOK, resp.StatusCode)
 
 			resp2, err := http.Get(fmt.Sprintf("%s/events/%s/picks", ts.URL, testEventId2))
 			if err != nil {
@@ -201,14 +213,14 @@ func TestServer(t *testing.T) {
 			}
 			defer resp2.Body.Close()
 
-			assert.Equal(t, http.StatusOK, resp2.StatusCode)
+			require.Equal(t, http.StatusOK, resp2.StatusCode)
 
 			var gotPicks picks.Picks
 			if err := json.NewDecoder(resp2.Body).Decode(&gotPicks); err != nil {
 				t.Fatal(err)
 			}
 
-			assert.Equal(t, testPicks.Winners, gotPicks.Winners)
+			require.Equal(t, testPicks.Winners, gotPicks.Winners)
 		}
 
 		makePicksAndCheck([]string{"A", "D", "E"})
@@ -226,7 +238,7 @@ func TestServer(t *testing.T) {
 		},
 	}
 	t.Run("should get all picks across multiple events", func(t *testing.T) {
-		clearEvents()
+		clearEventCache()
 
 		testScraper := testEventScraper{
 			maker: func(id string) *model.Event {
@@ -239,7 +251,7 @@ func TestServer(t *testing.T) {
 			},
 		}
 
-		srv := server.NewServer(testOAuth{}, testScraper, eventCache, eventPicks)
+		srv := server.NewServer(&testOAuth{}, testScraper, eventCache, eventPicks)
 		ts := httptest.NewServer(srv)
 		defer ts.Close()
 
@@ -255,7 +267,7 @@ func TestServer(t *testing.T) {
 		}
 		defer resp.Body.Close()
 
-		assert.Equal(t, http.StatusOK, resp.StatusCode)
+		require.Equal(t, http.StatusOK, resp.StatusCode)
 
 		resp2, err := http.Get(fmt.Sprintf("%s/events/picks", ts.URL))
 		if err != nil {
@@ -263,24 +275,130 @@ func TestServer(t *testing.T) {
 		}
 		defer resp2.Body.Close()
 
-		assert.Equal(t, http.StatusOK, resp2.StatusCode)
+		require.Equal(t, http.StatusOK, resp2.StatusCode)
 
 		var gotPicks []*events.GetAllPicksResponse
 		if err := json.NewDecoder(resp2.Body).Decode(&gotPicks); err != nil {
 			t.Fatal(err)
 		}
 
-		b, _ := json.Marshal(gotPicks)
-		fmt.Println(string(b))
+		require.Len(t, gotPicks, 2)
+		require.Equal(t, testEventId3, gotPicks[0].Picks.EventId)
+		require.Equal(t, testEventId2, gotPicks[1].Picks.EventId)
+		require.Equal(t, testEvent3, gotPicks[0].Event)
+		require.Equal(t, testEvent2, gotPicks[1].Event)
+	})
 
-		assert.Len(t, gotPicks, 2)
-		assert.Equal(t, testEventId3, gotPicks[0].Picks.EventId)
-		assert.Equal(t, testEventId2, gotPicks[1].Picks.EventId)
-		assert.Equal(t, testEvent3, gotPicks[0].Event)
-		assert.Equal(t, testEvent2, gotPicks[1].Event)
-
-		if len(gotPicks) != 2 {
-			t.Errorf("expected 2 picks, got %d", len(gotPicks))
+	runScoreJob := func(t *testing.T, ts *httptest.Server) {
+		req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("%s/events/score_job", ts.URL), nil)
+		if err != nil {
+			t.Fatalf("failed to create request: %v", err)
 		}
+		req.Header.Set("api-key", os.Getenv("CRONJOB_API_KEY"))
+
+		client := &http.Client{}
+		res, err := client.Do(req)
+		if err != nil {
+			t.Fatalf("request failed: %v", err)
+		}
+		defer res.Body.Close()
+
+		require.Equal(t, http.StatusOK, res.StatusCode)
+	}
+
+	t.Run("should score picks in the score job", func(t *testing.T) {
+		clearEventCache()
+		clearPicksTable()
+
+		finishedEvent := &model.Event{
+			Id:        "123",
+			StartTime: time.Now().Add(4 * time.Hour).Format(time.RFC3339), // so we can still make picks
+			Fights: []model.Fight{
+				{Fighters: []string{"1", "2"}, Winner: "1"},
+				{Fighters: []string{"3", "4"}, Winner: "4"},
+				{Fighters: []string{"5", "6"}, Winner: "5"},
+			},
+		}
+		testScraper := testEventScraper{
+			maker: func(_ string) *model.Event {
+				return finishedEvent
+			},
+		}
+
+		user1Id := "user1"
+		user2Id := "user2"
+		ids := []string{user1Id, user2Id, user1Id, user2Id}
+		srv := server.NewServer(&testOAuth{ids: ids}, testScraper, eventCache, eventPicks)
+		ts := httptest.NewServer(srv)
+		defer ts.Close()
+
+		// should do nothing
+		runScoreJob(t, ts)
+
+		// first user's picks
+		testPicks := events.PostEventPicksRequest{
+			Winners: []string{"1", "3", "5"},
+		}
+		var buf bytes.Buffer
+		_ = json.NewEncoder(&buf).Encode(testPicks)
+
+		resp, err := http.Post(fmt.Sprintf("%s/events/%s/picks", ts.URL, finishedEvent.Id), "application/json", &buf)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer resp.Body.Close()
+
+		require.Equal(t, http.StatusOK, resp.StatusCode)
+
+		// second user's picks
+		testPicks = events.PostEventPicksRequest{
+			Winners: []string{"2", "3", "5"},
+		}
+		var buf2 bytes.Buffer
+		_ = json.NewEncoder(&buf2).Encode(testPicks)
+
+		resp, err = http.Post(fmt.Sprintf("%s/events/%s/picks", ts.URL, finishedEvent.Id), "application/json", &buf2)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer resp.Body.Close()
+
+		require.Equal(t, http.StatusOK, resp.StatusCode)
+
+		runScoreJob(t, ts)
+
+		resp, err = http.Get(fmt.Sprintf("%s/events/picks", ts.URL))
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer resp.Body.Close()
+
+		require.Equal(t, http.StatusOK, resp.StatusCode)
+
+		var user1Picks []*events.GetAllPicksResponse
+		if err := json.NewDecoder(resp.Body).Decode(&user1Picks); err != nil {
+			t.Fatal(err)
+		}
+
+		require.Len(t, user1Picks, 1)
+		require.Equal(t, finishedEvent.Id, user1Picks[0].Picks.EventId)
+		require.Equal(t, 2, *user1Picks[0].Score)
+
+		resp, err = http.Get(fmt.Sprintf("%s/events/picks", ts.URL))
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer resp.Body.Close()
+
+		require.Equal(t, http.StatusOK, resp.StatusCode)
+
+		var user2Picks []*events.GetAllPicksResponse
+		if err := json.NewDecoder(resp.Body).Decode(&user2Picks); err != nil {
+			t.Fatal(err)
+		}
+
+		require.Len(t, user2Picks, 1)
+		require.Equal(t, finishedEvent.Id, user2Picks[0].Picks.EventId)
+		require.Equal(t, 1, *user2Picks[0].Score)
 	})
 }

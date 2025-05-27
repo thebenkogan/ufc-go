@@ -12,13 +12,14 @@ import (
 	"github.com/thebenkogan/ufc/internal/cache"
 	"github.com/thebenkogan/ufc/internal/model"
 	"github.com/thebenkogan/ufc/internal/picks"
-	"github.com/thebenkogan/ufc/internal/util/api_util"
+	"github.com/thebenkogan/ufc/internal/util/api"
+	"github.com/thebenkogan/ufc/internal/util/conv"
 	"github.com/thebenkogan/ufc/internal/util/logs"
 )
 
 const scheduleTTL = time.Hour
 
-func HandleGetSchedule(eventScraper EventScraper, eventCache cache.EventCacheRepository) api_util.Handler {
+func HandleGetSchedule(eventScraper EventScraper, eventCache cache.EventCacheRepository) api.Handler {
 	return func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
 		cached, err := eventCache.GetSchedule(ctx)
 		if err != nil {
@@ -27,7 +28,7 @@ func HandleGetSchedule(eventScraper EventScraper, eventCache cache.EventCacheRep
 
 		if cached != nil {
 			logs.Logger(ctx).Info("cache hit")
-			api_util.Encode(w, http.StatusOK, cached)
+			api.Encode(w, http.StatusOK, cached)
 			return nil
 		}
 
@@ -44,24 +45,24 @@ func HandleGetSchedule(eventScraper EventScraper, eventCache cache.EventCacheRep
 			logs.Logger(ctx).Warn("failed to cache schedule", "error", err)
 		}
 
-		api_util.Encode(w, http.StatusOK, schedule)
+		api.Encode(w, http.StatusOK, schedule)
 		return nil
 	}
 }
 
-func HandleGetEvent(eventScraper EventScraper, eventCache cache.EventCacheRepository) api_util.Handler {
+func HandleGetEvent(eventScraper EventScraper, eventCache cache.EventCacheRepository) api.Handler {
 	return func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
 		id := r.PathValue("id")
 		event, err := getEventWithCache(ctx, eventScraper, eventCache, id)
 		if err != nil {
 			return err
 		}
-		api_util.Encode(w, http.StatusOK, event)
+		api.Encode(w, http.StatusOK, event)
 		return nil
 	}
 }
 
-func HandleGetPicks(eventScraper EventScraper, eventCache cache.EventCacheRepository, eventPicks picks.EventPicksRepository) api_util.Handler {
+func HandleGetPicks(eventScraper EventScraper, eventCache cache.EventCacheRepository, eventPicks picks.EventPicksRepository) api.Handler {
 	return func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
 		user := auth.GetUser(ctx)
 		if user == nil {
@@ -74,7 +75,7 @@ func HandleGetPicks(eventScraper EventScraper, eventCache cache.EventCacheReposi
 			return err
 		}
 
-		userPicks, err := eventPicks.GetPicks(ctx, user, event.Id)
+		userPicks, err := eventPicks.GetUserPicksByEvent(ctx, user, event.Id)
 		if err != nil {
 			return err
 		}
@@ -82,7 +83,7 @@ func HandleGetPicks(eventScraper EventScraper, eventCache cache.EventCacheReposi
 			userPicks = &picks.Picks{UserId: user.Id, EventId: eventId, Winners: []string{}}
 		}
 
-		api_util.Encode(w, http.StatusOK, userPicks)
+		api.Encode(w, http.StatusOK, userPicks)
 		return nil
 	}
 }
@@ -92,20 +93,20 @@ type GetAllPicksResponse struct {
 	Event *model.Event `json:"event"`
 }
 
-func HandleGetAllPicks(eventScraper EventScraper, eventCache cache.EventCacheRepository, eventPicks picks.EventPicksRepository) api_util.Handler {
+func HandleGetAllPicks(eventScraper EventScraper, eventCache cache.EventCacheRepository, eventPicks picks.EventPicksRepository) api.Handler {
 	return func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
 		user := auth.GetUser(ctx)
 		if user == nil {
 			return fmt.Errorf("no user in context")
 		}
 
-		userPicks, err := eventPicks.GetAllPicks(ctx, user)
+		userPicks, err := eventPicks.GetAllUserPicks(ctx, user)
 		if err != nil {
 			return fmt.Errorf("error getting all picks: %w", err)
 		}
 
 		if len(userPicks) == 0 {
-			api_util.Encode(w, http.StatusOK, []GetAllPicksResponse{})
+			api.Encode(w, http.StatusOK, []GetAllPicksResponse{})
 			return nil
 		}
 
@@ -126,7 +127,7 @@ func HandleGetAllPicks(eventScraper EventScraper, eventCache cache.EventCacheRep
 			res = append(res, &GetAllPicksResponse{Picks: up, Event: eventMap[up.EventId]})
 		}
 
-		api_util.Encode(w, http.StatusOK, res)
+		api.Encode(w, http.StatusOK, res)
 		return nil
 	}
 }
@@ -135,10 +136,10 @@ type PostEventPicksRequest struct {
 	Winners []string `json:"winners"`
 }
 
-func HandlePostPicks(eventScraper EventScraper, eventCache cache.EventCacheRepository, eventPicks picks.EventPicksRepository) api_util.Handler {
+func HandlePostPicks(eventScraper EventScraper, eventCache cache.EventCacheRepository, eventPicks picks.EventPicksRepository) api.Handler {
 	return func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
 		var picks PostEventPicksRequest
-		api_util.Decode(r, &picks)
+		api.Decode(r, &picks)
 
 		pickedFighters := lo.Uniq(picks.Winners)
 
@@ -171,16 +172,51 @@ func HandlePostPicks(eventScraper EventScraper, eventCache cache.EventCacheRepos
 	}
 }
 
-func HandleScoreJob(eventScraper EventScraper, eventCache cache.EventCacheRepository) api_util.Handler {
+func HandleScoreJob(eventScraper EventScraper, eventCache cache.EventCacheRepository, eventPicks picks.EventPicksRepository) api.Handler {
 	return func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
 		key := r.Header.Get("api-key")
 		cronjobKey := os.Getenv("CRONJOB_API_KEY")
 		if key != cronjobKey {
-			api_util.Encode(w, http.StatusForbidden, http.StatusText(http.StatusForbidden))
+			api.Encode(w, http.StatusForbidden, http.StatusText(http.StatusForbidden))
 			return nil
 		}
 
-		api_util.Encode(w, http.StatusOK, "HELLO!")
+		latestEvent, err := getEventWithCache(ctx, eventScraper, eventCache, eventLatest)
+		if err != nil {
+			return err
+		}
+
+		if !latestEvent.IsFinished() {
+			logs.Logger(ctx).Info("latest event is not finished, skipping job")
+			return nil
+		}
+
+		filter := &picks.PicksFilter{
+			EventIDs: []string{latestEvent.Id},
+			HasScore: conv.Ptr(false),
+		}
+		allPicks, err := eventPicks.GetPicksByFilter(ctx, filter)
+		if err != nil {
+			return err
+		}
+
+		if len(allPicks) == 0 {
+			logs.Logger(ctx).Info("all picks scored, skipping job")
+			return nil
+		}
+
+		logs.Logger(ctx).Info("scoring picks", "total", len(allPicks), "event ID", latestEvent.Id)
+
+		for _, p := range allPicks {
+			p.Score = conv.Ptr(scorePicks(latestEvent, p.Winners))
+		}
+
+		errs := eventPicks.BatchScorePicks(ctx, allPicks)
+		if len(errs) > 0 {
+			logs.Logger(ctx).Warn("failed to save some picks", "errors", errs)
+		}
+
+		api.Encode(w, http.StatusOK, fmt.Sprintf("scored %d picks", len(allPicks)))
 		return nil
 	}
 }

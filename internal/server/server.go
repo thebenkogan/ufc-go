@@ -8,7 +8,7 @@ import (
 	"github.com/thebenkogan/ufc/internal/cache"
 	"github.com/thebenkogan/ufc/internal/events"
 	"github.com/thebenkogan/ufc/internal/picks"
-	"github.com/thebenkogan/ufc/internal/util/api_util"
+	"github.com/thebenkogan/ufc/internal/util/api"
 	"github.com/thebenkogan/ufc/internal/util/logs"
 )
 
@@ -23,7 +23,7 @@ func NewServer(oauth auth.OIDCAuth, eventScraper events.EventScraper, eventCache
 }
 
 // wrapper for http.HandlerFuncs that return errors
-func handler(h api_util.Handler) http.HandlerFunc {
+func handler(h api.Handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ctx := logs.WithRequestLogger(r)
 		if err := h(ctx, w, r); err != nil {
@@ -46,7 +46,7 @@ func addRoutes(
 
 	mux.Handle("GET /schedule", handler((events.HandleGetSchedule(eventScraper, eventCache))))
 
-	mux.Handle("POST /events/score_job", handler((events.HandleScoreJob(eventScraper, eventCache))))
+	mux.Handle("POST /events/score_job", handler((events.HandleScoreJob(eventScraper, eventCache, eventPicks))))
 	mux.Handle("GET /events/picks", handler(oauth.Middleware(events.HandleGetAllPicks(eventScraper, eventCache, eventPicks))))
 	mux.Handle("GET /events/{id}", handler((events.HandleGetEvent(eventScraper, eventCache))))
 
