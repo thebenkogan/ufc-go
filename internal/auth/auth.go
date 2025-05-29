@@ -43,8 +43,7 @@ func setCookie(w http.ResponseWriter, r *http.Request, name, value string) {
 
 func HandleMe(auth OIDCAuth) api.Handler {
 	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
-		user := ctx.Value("user").(User)
-		api.Encode(w, http.StatusOK, user)
+		api.Encode(w, http.StatusOK, GetUser(ctx))
 		return nil
 	}
 	return auth.Middleware(handler)
